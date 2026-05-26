@@ -13,17 +13,23 @@ const app = express();
 
 const PORT = process.env.PORT || 3002;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'https://kouira-fichaje.vercel.app',
+  FRONTEND_ORIGIN,
+  /^https:\/\/.*\.vercel\.app$/,
+  /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+];
 
-// CORS: permite localhost y cualquier IP local 192.168.x.x (necesario para móvil)
+// CORS: permite localhost, Vercel y red local (necesario para móvil)
 const corsOptions = {
   origin: (origin, callback) => {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-    ];
-    // Acepta también cualquier IP local 192.168.x.x
-    if (!origin || allowedOrigins.includes(origin) || /^http:\/\/192\.168\./.test(origin)) {
+    if (!origin || allowedOrigins.some((allowed) => {
+      if (allowed instanceof RegExp) return allowed.test(origin);
+      return allowed === origin;
+    })) {
       callback(null, true);
     } else {
       callback(new Error('CORS no permitido'));
