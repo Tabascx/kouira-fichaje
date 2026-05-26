@@ -359,6 +359,53 @@
 .modal-btns .btn-logout { flex: 1; }
 .modal-btns .btn-login  { flex: 2; }
 
+/* DASHBOARD */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.dashboard-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.dashboard-numero {
+  font-size: 40px;
+  font-weight: 700;
+  color: #1976d2;
+  margin-bottom: 8px;
+}
+
+.dashboard-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+/* RESPONSIVE DASHBOARD */
+@media (max-width: 600px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-numero {
+    font-size: 32px;
+  }
+}
+
 /* MÓVIL */
 @media (max-width: 400px) {
   .panel-fondo { padding: 8px; }

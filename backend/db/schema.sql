@@ -32,6 +32,18 @@ CREATE TABLE IF NOT EXISTS ausencias (
   creado_en       TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Tabla de auditoría (histórico de cambios en fichajes)
+CREATE TABLE IF NOT EXISTS auditoria (
+  id              SERIAL PRIMARY KEY,
+  accion          VARCHAR(20) NOT NULL,  -- 'eliminar', 'crear', 'modificar'
+  tabla           VARCHAR(20) NOT NULL,  -- 'fichajes', 'ausencias'
+  registro_id     INTEGER NOT NULL,      -- ID del fichaje o ausencia afectada
+  usuario_id      INTEGER NOT NULL REFERENCES usuarios(id),  -- admin que hizo el cambio
+  datos_anterior  JSONB,                 -- datos antes del cambio
+  razon           TEXT,                  -- motivo opcional
+  creado_en       TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- Índices para búsquedas rápidas por fecha
 CREATE INDEX IF NOT EXISTS idx_fichajes_usuario ON fichajes(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_fichajes_fecha   ON fichajes(fecha_hora);

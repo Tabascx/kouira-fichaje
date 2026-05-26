@@ -112,16 +112,48 @@ router.post('/manual', verificarToken, soloAdmin, async (req, res) => {
 // DELETE /api/fichajes/:id — eliminar un fichaje (solo admin)
 router.delete('/:id', verificarToken, soloAdmin, async (req, res) => {
   const { id } = req.params;
+  const admin_id = req.usuario.id;
 
   try {
-    const resultado = await pool.query('DELETE FROM fichajes WHERE id = $1', [id]);
-    if (resultado.rowCount === 0) {
+    // Obtener el fichaje antes de eliminarlo (para auditoría)
+    const fichajeRes = await pool.query('SELECT * FROM fichajes WHERE id = $1', [id]);
+    if (fichajeRes.rowCount === 0) {
       return res.status(404).json({ error: 'Fichaje no encontrado' });
     }
+    
+    const fichaje = fichajeRes.rows[0];
+    
+    // Eliminar el fichaje
+    await pool.query('DELETE FROM fichajes WHERE id = $1', [id]);
+    
+    // Registrar en auditoría
+    await pool.query(
+      `INSERT INTO auditoria (accion, tabla, registro_id, usuario_id, datos_anterior)
+       VALUES ('eliminar', 'fichajes', $1, $2, $3)`,
+      [id, admin_id, JSON.stringify(fichaje)]
+    );
+    
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al eliminar fichaje' });
+  }
+});
+
+// GET /api/fichajes/auditoria/historial — historial de cambios (solo admin)
+router.get('/auditoria/historial', verificarToken, soloAdmin, async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      `SELECT a.*, u.nombre AS admin_nombre
+       FROM auditoria a
+       JOIN usuarios u ON u.id = a.usuario_id
+       ORDER BY a.creado_en DESC
+       LIMIT 100`
+    );
+    res.json(resultado.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener auditoría' });
   }
 });
 

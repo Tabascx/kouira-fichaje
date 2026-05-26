@@ -2,9 +2,10 @@
 
 ## ✅ LO QUE ESTÁ LISTO
 
-### 1. **Eliminar fichajes errados**
+### 1. **Eliminar fichajes errados con auditoría**
 - En el panel admin, pestaña "Hoy"
 - Cada fichaje tiene un botón rojo con "✕" para eliminarlo
+- Cuando se elimina, queda registrado en la tabla de auditoría (quién, cuándo, datos)
 - Solo el admin puede eliminar
 
 ### 2. **Crear fichaje manual (admin)**
@@ -19,10 +20,33 @@
 - Debe rellenarla antes de poder fichar
 - Solo se pide una vez (se guarda en localStorage)
 
-### 4. **App en iPhone como PWA**
+### 4. **Dashboard para Admin**
+- Pantalla inicial con 4 números grandes
+- Fichados hoy vs faltan por fichar
+- Total horas del mes
+- Total de trabajadores
+- De un vistazo se ve el estado del equipo
+
+### 5. **Resumen de horas para Trabajador**
+- Panel del trabajador con nueva pestaña "Resumen"
+- Ve sus horas trabajadas del mes actual
+- Ve ausencias registradas ese mes
+- Total justificadas e injustificadas
+
+### 6. **Sesión expira a las 16h (fin de jornada)**
+- JWT ahora expira a las 16:00 del mismo día (no 8h desde login)
+- Si entras después de las 16h, expira al día siguiente a las 16h
+- El frontend detecta y pide login de nuevo automáticamente
+
+### 7. **App en iPhone como PWA**
 - Manifest actualizado con nombre "Kouira" y tema azul
-- Frontend apunta a `192.168.1.20:3002` en archivo `.env`
+- Frontend apunta a `192.168.1.20:3000` en archivo `.env`
 - Backend escucha en `0.0.0.0` y CORS permite IPs locales 192.168.x.x
+
+### 8. **Traducción completa (Español + Árabe)**
+- Todo el interfaz traducido 100%
+- Selector de idioma en todas las pantallas
+- Sin claves duplicadas en i18n.js
 
 ---
 

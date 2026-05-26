@@ -32,11 +32,22 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
-    // Generar el token JWT (expira en 8h = duración de la jornada)
+    // Generar el token JWT
+    // Expira a las 16:00 (fin de jornada) del mismo día
+    const ahora = new Date();
+    const finJornada = new Date(ahora);
+    finJornada.setHours(16, 0, 0, 0);
+    
+    // Si ya pasaron las 16h, expira mañana a las 16h
+    if (ahora >= finJornada) {
+      finJornada.setDate(finJornada.getDate() + 1);
+    }
+
+    const tiempoExp = Math.floor((finJornada - ahora) / 1000); // en segundos
     const token = jwt.sign(
       { id: usuario.id, username: usuario.username, rol: usuario.rol, nombre: usuario.nombre },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+      { expiresIn: tiempoExp }
     );
 
     res.json({

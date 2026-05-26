@@ -6,11 +6,12 @@ import { t, getLang, setLang } from '../i18n';
 
 export default function PanelAdmin() {
   const { logout } = useAuth();
-  const [tab, setTab]                   = useState('hoy');
+  const [tab, setTab]                   = useState('dashboard');
   const [fichajesHoy, setFichajesHoy]   = useState([]);
   const [resumen, setResumen]           = useState([]);
   const [trabajadores, setTrabajadores] = useState([]);
   const [ausencias, setAusencias]       = useState([]);
+  const [statsHoy, setStatsHoy]         = useState({ fichados: 0, faltan: 0, totalHoras: 0 });
   const [nuevoForm, setNuevoForm]       = useState({ nombre: '', username: '', password: '' });
   const [msgNuevo, setMsgNuevo]         = useState(null);
   const [modalAusencia, setModalAusencia] = useState(null);
@@ -33,7 +34,23 @@ export default function PanelAdmin() {
     return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  const cargarHoy          = useCallback(async () => { try { const { data } = await api.get('/fichajes/hoy'); setFichajesHoy(data); } catch {} }, []);
+  const cargarHoy          = useCallback(async () => { 
+    try { 
+      const { data } = await api.get('/fichajes/hoy'); 
+      setFichajesHoy(data);
+      // Calcular stats para dashboard
+      const trabajadoresConRegistro = new Set(data.map(f => f.usuario_id)).size;
+      const totalFaltantes = trabajadoresSolo.length - trabajadoresConRegistro;
+      const totalHoras = data.reduce((sum, f) => {
+        if (f.tipo === 'entrada') return sum;
+        const entrada = data.find(e => e.usuario_id === f.usuario_id && e.tipo === 'entrada' && new Date(e.fecha_hora).toDateString() === new Date(f.fecha_hora).toDateString());
+        if (!entrada) return sum;
+        const diff = (new Date(f.fecha_hora) - new Date(entrada.fecha_hora)) / 3600000;
+        return sum + diff;
+      }, 0);
+      setStatsHoy({ fichados: trabajadoresConRegistro, faltan: totalFaltantes, totalHoras: totalHoras.toFixed(1) });
+    } catch {} 
+  }, [trabajadores]);
   const cargarResumen      = useCallback(async () => { try { const { data } = await api.get(`/fichajes/resumen?mes=${mesSeleccionado}`); setResumen(data); } catch {} }, [mesSeleccionado]);
   const cargarTrabajadores = useCallback(async () => { try { const { data } = await api.get('/trabajadores'); setTrabajadores(data); } catch {} }, []);
   const cargarAusencias    = useCallback(async () => { try { const { data } = await api.get(`/ausencias?mes=${mesSeleccionado}`); setAusencias(data); } catch {} }, [mesSeleccionado]);
@@ -42,6 +59,7 @@ export default function PanelAdmin() {
   useEffect(() => { cargarTrabajadores(); }, [cargarTrabajadores]);
 
   useEffect(() => {
+    if (tab === 'dashboard')    cargarHoy();
     if (tab === 'hoy')          cargarHoy();
     if (tab === 'resumen')      cargarResumen();
     if (tab === 'ausencias')    { cargarAusencias(); }
@@ -151,13 +169,37 @@ export default function PanelAdmin() {
         </div>
 
         <div className="tabs">
+          <button className={`tab ${tab === 'dashboard'      ? 'activo' : ''}`} onClick={() => setTab('dashboard')}>📊 {t('dashboard_titulo')}</button>
           <button className={`tab ${tab === 'hoy'          ? 'activo' : ''}`} onClick={() => setTab('hoy')}>{t('hoy')}</button>
           <button className={`tab ${tab === 'resumen'      ? 'activo' : ''}`} onClick={() => setTab('resumen')}>{t('resumen')}</button>
           <button className={`tab ${tab === 'ausencias'    ? 'activo' : ''}`} onClick={() => setTab('ausencias')}>{t('ausencias')}</button>
           <button className={`tab ${tab === 'trabajadores' ? 'activo' : ''}`} onClick={() => setTab('trabajadores')}>{t('equipo')}</button>
         </div>
 
-        {/* HOY */}
+        {/* DASHBOARD */}
+        {tab === 'dashboard' && (
+          <div className="seccion">
+            <div className="seccion-titulo">📊 {t('dashboard_titulo')}</div>
+            <div className="dashboard-grid">
+              <div className="dashboard-card">
+                <div className="dashboard-numero">{statsHoy.fichados}</div>
+                <div className="dashboard-label">{t('fichados_hoy')}</div>
+              </div>
+              <div className="dashboard-card">
+                <div className="dashboard-numero" style={{ color: '#d32f2f' }}>{statsHoy.faltan}</div>
+                <div className="dashboard-label">{t('faltan_fichar')}</div>
+              </div>
+              <div className="dashboard-card">
+                <div className="dashboard-numero">{statsHoy.totalHoras}h</div>
+                <div className="dashboard-label">{t('horas_totales_mes')}</div>
+              </div>
+              <div className="dashboard-card">
+                <div className="dashboard-numero">{trabajadores.length}</div>
+                <div className="dashboard-label">{t('trabajadores')}</div>
+              </div>
+            </div>
+          </div>
+        )}
         {tab === 'hoy' && (
           <div className="seccion">
             <div className="seccion-header">
