@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import './Panel.css';
-import { t, getLang } from '../i18n';
+import { t } from '../i18n';
 
 export default function PanelTrabajador() {
   const { usuario, logout } = useAuth();
@@ -12,7 +12,7 @@ export default function PanelTrabajador() {
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje]   = useState(null);
   const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
-  const [formPass, setFormPass] = useState({ nueva: '', confirma: '' });
+  const [formPass, setFormPass] = useState({ actual: '', nueva: '', confirma: '' });
   const [errorPass, setErrorPass] = useState('');
   const [cargandoPass, setCargandoPass] = useState(false);
   const [tab, setTab] = useState('fichar');
@@ -35,14 +35,15 @@ export default function PanelTrabajador() {
   const cambiarContrasena = async (e) => {
     e.preventDefault();
     setErrorPass('');
+    if (!formPass.actual) { setErrorPass('Debes escribir tu contraseña actual'); return; }
     if (formPass.nueva !== formPass.confirma) { setErrorPass(t('contrasenas_no_coinciden')); return; }
     if (formPass.nueva.length < 4) { setErrorPass('La contraseña debe tener al menos 4 caracteres'); return; }
     setCargandoPass(true);
     try {
-      await api.post(`/trabajadores/${usuario.id}/change-password`, { oldPassword: '', newPassword: formPass.nueva });
+      await api.post(`/trabajadores/${usuario.id}/change-password`, { oldPassword: formPass.actual, newPassword: formPass.nueva });
       localStorage.setItem(`cambio-pass-${usuario.id}`, 'true');
       setMostrarCambioPass(false);
-      setFormPass({ nueva: '', confirma: '' });
+      setFormPass({ actual: '', nueva: '', confirma: '' });
     } catch (err) {
       setErrorPass(err.response?.data?.error || t('error_cambio_contrasena'));
     } finally {
@@ -103,10 +104,17 @@ export default function PanelTrabajador() {
               <form onSubmit={cambiarContrasena} className="form-nuevo">
                 <input
                   type="password"
+                  placeholder="Tu contraseña actual"
+                  value={formPass.actual}
+                  onChange={(e) => setFormPass({ ...formPass, actual: e.target.value })}
+                  autoFocus
+                  required
+                />
+                <input
+                  type="password"
                   placeholder="Nueva contraseña"
                   value={formPass.nueva}
                   onChange={(e) => setFormPass({ ...formPass, nueva: e.target.value })}
-                  autoFocus
                   required
                 />
                 <input
