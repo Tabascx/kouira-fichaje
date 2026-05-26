@@ -17,7 +17,7 @@ export default function PanelTrabajador() {
   const [errorPass, setErrorPass] = useState('');
   const [cargandoPass, setCargandoPass] = useState(false);
   const [tab, setTab] = useState('fichar');
-  const [mesActual, setMesActual] = useState(() => {
+  const [mesActual] = useState(() => {
     const hoy = new Date();
     return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
   });
@@ -39,7 +39,7 @@ export default function PanelTrabajador() {
   };
 
   const cargarAusencias = async () => {
-    try { const { data } = await api.get(`/ausencias?mes=${mesActual}`); setAusencias(data); } catch {}
+    try { const { data } = await api.get(`/ausencias/mias?mes=${mesActual}`); setAusencias(data); } catch {}
   };
 
   const cambiarContrasena = async (e) => {

@@ -4,6 +4,24 @@ const { verificarToken, soloAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
+// GET /api/ausencias/mias?mes=2026-05 — ausencias del trabajador autenticado
+router.get('/mias', verificarToken, async (req, res) => {
+  const mes = req.query.mes || new Date().toISOString().slice(0, 7);
+  try {
+    const resultado = await pool.query(
+      `SELECT a.*
+       FROM ausencias a
+       WHERE a.usuario_id = $1
+         AND TO_CHAR(a.fecha, 'YYYY-MM') = $2
+       ORDER BY a.fecha DESC`,
+      [req.usuario.id, mes]
+    );
+    res.json(resultado.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener tus ausencias' });
+  }
+});
+
 // GET /api/ausencias?mes=2026-05 — listar ausencias del mes (admin)
 router.get('/', verificarToken, soloAdmin, async (req, res) => {
   const mes = req.query.mes || new Date().toISOString().slice(0, 7);
