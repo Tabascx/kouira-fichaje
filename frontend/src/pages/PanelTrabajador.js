@@ -7,63 +7,46 @@ import { t, getLang } from '../i18n';
 export default function PanelTrabajador() {
   const { usuario, logout } = useAuth();
 
-  const [hora, setHora]           = useState(new Date());
-  const [fichajes, setFichajes]   = useState([]);
-  const [cargando, setCargando]   = useState(false);
-  const [mensaje, setMensaje]     = useState(null); // { tipo: 'ok'|'error', texto }
-  const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false);
-  const [formCambioPass, setFormCambioPass] = useState({ nueva: '', confirma: '' });
+  const [hora, setHora]         = useState(new Date());
+  const [fichajes, setFichajes] = useState([]);
+  const [cargando, setCargando] = useState(false);
+  const [mensaje, setMensaje]   = useState(null);
+  const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
+  const [formPass, setFormPass] = useState({ nueva: '', confirma: '' });
+  const [errorPass, setErrorPass] = useState('');
   const [cargandoPass, setCargandoPass] = useState(false);
+  const [tab, setTab] = useState('fichar');
 
-  // Reloj en tiempo real
   useEffect(() => {
     const tick = setInterval(() => setHora(new Date()), 1000);
     return () => clearInterval(tick);
   }, []);
 
-  // Cargar historial al entrar
   useEffect(() => {
     cargarFichajes();
-    // Mostrar modal de cambio si es la primera vez (puedes usar una bandera en localStorage)
     const yaSeAvisoDeCambio = localStorage.getItem(`cambio-pass-${usuario.id}`);
-    if (!yaSeAvisoDeCambio) {
-      setMostrarCambioContrasena(true);
-    }
+    if (!yaSeAvisoDeCambio) setMostrarCambioPass(true);
   }, [usuario.id]);
 
-  const cambiarContraseña = async (e) => {
-    e.preventDefault();
-    if (formCambioPass.nueva !== formCambioPass.confirma) {
-      alert(t('contrasenas_no_coinciden'));
-      return;
-    }
-    if (formCambioPass.nueva.length < 4) {
-      alert(t('contrasena_label') + ' muy corta');
-      return;
-    }
-    setCargandoPass(true);
-    try {
-      await api.post(`/trabajadores/${usuario.id}/change-password`, {
-        oldPassword: '',
-        newPassword: formCambioPass.nueva,
-      });
-      localStorage.setItem(`cambio-pass-${usuario.id}`, 'true');
-      setMostrarCambioContrasena(false);
-      setFormCambioPass({ nueva: '', confirma: '' });
-      alert(t('cambio_exitoso'));
-    } catch (err) {
-      alert(err.response?.data?.error || t('error_cambio_contrasena'));
-    } finally {
-      setCargandoPass(false);
-    }
+  const cargarFichajes = async () => {
+    try { const { data } = await api.get('/fichajes/mios'); setFichajes(data); } catch {}
   };
 
-  const cargarFichajes = async () => {
+  const cambiarContrasena = async (e) => {
+    e.preventDefault();
+    setErrorPass('');
+    if (formPass.nueva !== formPass.confirma) { setErrorPass(t('contrasenas_no_coinciden')); return; }
+    if (formPass.nueva.length < 4) { setErrorPass('La contraseña debe tener al menos 4 caracteres'); return; }
+    setCargandoPass(true);
     try {
-      const { data } = await api.get('/fichajes/mios');
-      setFichajes(data);
-    } catch {
-      // silencioso — no bloquea la pantalla
+      await api.post(`/trabajadores/${usuario.id}/change-password`, { oldPassword: '', newPassword: formPass.nueva });
+      localStorage.setItem(`cambio-pass-${usuario.id}`, 'true');
+      setMostrarCambioPass(false);
+      setFormPass({ nueva: '', confirma: '' });
+    } catch (err) {
+      setErrorPass(err.response?.data?.error || t('error_cambio_contrasena'));
+    } finally {
+      setCargandoPass(false);
     }
   };
 
@@ -72,8 +55,8 @@ export default function PanelTrabajador() {
     setMensaje(null);
     try {
       await api.post('/fichajes', { tipo });
-      const timeStr = hora.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-      setMensaje({ tipo: 'ok', texto: tipo === 'entrada' ? `${t('entrada_registrada')} ${timeStr}` : `${t('salida_registrada')} ${timeStr}` });
+      const timeStr = hora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      setMensaje({ tipo: 'ok', texto: tipo === 'entrada' ? `✅ Entrada registrada a las ${timeStr}` : `✅ Salida registrada a las ${timeStr}` });
       cargarFichajes();
     } catch (err) {
       setMensaje({ tipo: 'error', texto: err.response?.data?.error || t('error_registrar') });
@@ -82,140 +65,138 @@ export default function PanelTrabajador() {
     }
   };
 
-  // Determina si el último fichaje fue entrada (entonces toca salida) o viceversa
   const ultimoFichaje = fichajes[0];
-  const tocaSalida = ultimoFichaje?.tipo === 'entrada';
+  const tocaSalida    = ultimoFichaje?.tipo === 'entrada';
 
-  const locale = getLang() === 'ar' ? 'ar' : 'es-ES';
-  const formatFecha = (iso) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
-  };
+  const formatFecha = (iso) => new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  const formatHora  = (iso) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-  const formatHora = (iso) => {
-    return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const tipoTexto = (tipo) => t(tipo) || tipo;
-
-  // Calcula el total de horas trabajadas a partir de la lista de fichajes
-  const calcularHorasTotales = (fichajesList) => {
-    if (!fichajesList || fichajesList.length === 0) return 0;
-    // Ordenar cronológicamente ascendente
-    const sorted = [...fichajesList].sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
-    let totalMs = 0;
-    let lastEntrada = null;
+  const calcularHoras = (list) => {
+    const sorted = [...list].sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
+    let totalMs = 0, lastEntrada = null;
     for (const f of sorted) {
-      if (f.tipo === 'entrada') {
-        lastEntrada = new Date(f.fecha_hora);
-      } else if (f.tipo === 'salida') {
-        if (lastEntrada) {
-          const salida = new Date(f.fecha_hora);
-          if (salida > lastEntrada) totalMs += (salida - lastEntrada);
-          lastEntrada = null;
-        }
+      if (f.tipo === 'entrada') lastEntrada = new Date(f.fecha_hora);
+      else if (f.tipo === 'salida' && lastEntrada) {
+        const salida = new Date(f.fecha_hora);
+        if (salida > lastEntrada) totalMs += (salida - lastEntrada);
+        lastEntrada = null;
       }
     }
-    // devolver horas en milisegundos
     return totalMs;
   };
 
-  const totalMs = calcularHorasTotales(fichajes);
-  const totalHoras = Math.floor(totalMs / (1000 * 60 * 60));
-  const totalMinutos = Math.floor((totalMs - totalHoras * 1000 * 60 * 60) / (1000 * 60));
+  const totalMs      = calcularHoras(fichajes);
+  const totalHoras   = Math.floor(totalMs / (1000 * 60 * 60));
+  const totalMinutos = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
 
   return (
     <div className="panel-fondo">
       <div className="panel-wrap">
 
-        {/* MODAL CAMBIO OBLIGATORIO DE CONTRASEÑA */}
-        {mostrarCambioContrasena && (
+        {/* MODAL CAMBIO CONTRASEÑA */}
+        {mostrarCambioPass && (
           <div className="modal-fondo">
             <div className="modal-card">
-              <div className="seccion-titulo">{t('cambiar_contrasena_primer_login')}</div>
-              <p style={{ color: '#666', fontSize: 13, marginBottom: 12 }}>{t('cambiar_contrasena_ahora')}</p>
-              <form onSubmit={cambiarContraseña} className="form-nuevo">
-                <input 
-                  type="password" 
-                  placeholder={t('nueva_contrasena')} 
-                  value={formCambioPass.nueva} 
-                  onChange={(e) => setFormCambioPass({ ...formCambioPass, nueva: e.target.value })} 
-                  required 
+              <div className="modal-icono">🔐</div>
+              <div className="modal-titulo">Cambia tu contraseña</div>
+              <p className="modal-desc">Es tu primera vez. Pon una contraseña que recuerdes.</p>
+              <form onSubmit={cambiarContrasena} className="form-nuevo">
+                <input
+                  type="password"
+                  placeholder="Nueva contraseña"
+                  value={formPass.nueva}
+                  onChange={(e) => setFormPass({ ...formPass, nueva: e.target.value })}
+                  autoFocus
+                  required
                 />
-                <input 
-                  type="password" 
-                  placeholder={t('confirmar_contrasena')} 
-                  value={formCambioPass.confirma} 
-                  onChange={(e) => setFormCambioPass({ ...formCambioPass, confirma: e.target.value })} 
-                  required 
+                <input
+                  type="password"
+                  placeholder="Repite la contraseña"
+                  value={formPass.confirma}
+                  onChange={(e) => setFormPass({ ...formPass, confirma: e.target.value })}
+                  required
                 />
+                {errorPass && <div className="alerta error">{errorPass}</div>}
                 <button type="submit" className="btn-login" disabled={cargandoPass}>
-                  {cargandoPass ? t('entrando') : t('cambiar_contrasena_primer_login')}
+                  {cargandoPass ? 'Guardando...' : 'Guardar contraseña'}
                 </button>
               </form>
             </div>
           </div>
         )}
 
-        {/* Cabecera */}
+        {/* CABECERA */}
         <div className="cabecera">
           <div>
-            <div className="cabecera-empresa">🏭 {t('empresa')}</div>
+            <div className="cabecera-empresa">🏭 Kouira S.L</div>
             <div className="cabecera-nombre">{usuario.nombre}</div>
           </div>
           <button className="btn-logout" onClick={logout}>{t('salir')}</button>
         </div>
 
-        {/* Reloj y fichaje */}
-        <div className="fichar-card">
-          <div className="reloj">{hora.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
-          <div className="fecha-hoy">{hora.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-
-          {mensaje && (
-            <div className={`alerta ${mensaje.tipo}`}>{mensaje.texto}</div>
-          )}
-
-          <div className="botones-fichar">
-            <button
-              className="btn-fichar entrada"
-              onClick={() => fichar('entrada')}
-              disabled={cargando || tocaSalida}
-            >
-              ↓ {t('fichar_entrada')}
-            </button>
-            <button
-              className="btn-fichar salida"
-              onClick={() => fichar('salida')}
-              disabled={cargando || !tocaSalida}
-            >
-              ↑ {t('fichar_salida')}
-            </button>
-          </div>
-
-          {ultimoFichaje && (
-            <div className="ultimo-fichaje">
-              {t('ultimo_registro')}: <strong>{tipoTexto(ultimoFichaje.tipo)}</strong> {t('a_las')} {formatHora(ultimoFichaje.fecha_hora)}
-            </div>
-          )}
+        {/* TABS TRABAJADOR */}
+        <div className="tabs">
+          <button className={`tab ${tab === 'fichar' ? 'activo' : ''}`} onClick={() => setTab('fichar')}>⏱ Fichar</button>
+          <button className={`tab ${tab === 'historial' ? 'activo' : ''}`} onClick={() => setTab('historial')}>📋 Historial</button>
         </div>
 
-        {/* Historial */}
-        <div className="seccion">
-          <div className="seccion-titulo">{t('horas_trabajadas')} — {totalHoras}h {totalMinutos}m</div>
-          {fichajes.length === 0 ? (
-            <div className="vacio">{t('no_hay_registros')}</div>
-          ) : (
-            <div className="tabla-wrap">
-              {fichajes.slice(0, 20).map((f) => (
-                <div key={f.id} className="fila-fichaje">
-                  <span className="fila-fecha">{formatFecha(f.fecha_hora)}</span>
-                  <span className={`fila-tipo ${f.tipo}`}>{tipoTexto(f.tipo)}</span>
-                  <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
+        {/* TAB FICHAR */}
+        {tab === 'fichar' && (
+          <>
+            <div className="fichar-card">
+              <div className="reloj">{hora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+              <div className="fecha-hoy">{hora.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+
+              {mensaje && <div className={`alerta ${mensaje.tipo}`}>{mensaje.texto}</div>}
+
+              <div className="botones-fichar">
+                <button className="btn-fichar entrada" onClick={() => fichar('entrada')} disabled={cargando || tocaSalida}>
+                  ↓ {t('fichar_entrada')}
+                </button>
+                <button className="btn-fichar salida" onClick={() => fichar('salida')} disabled={cargando || !tocaSalida}>
+                  ↑ {t('fichar_salida')}
+                </button>
+              </div>
+
+              {ultimoFichaje && (
+                <div className="ultimo-fichaje">
+                  {t('ultimo_registro')}: <strong>{ultimoFichaje.tipo}</strong> a las {formatHora(ultimoFichaje.fecha_hora)}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
+
+            <div className="stats-grid">
+              <div className="stat-card">
+                <div className="stat-label">Horas este mes</div>
+                <div className="stat-valor">{totalHoras}h {totalMinutos}m</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Días fichados</div>
+                <div className="stat-valor">{new Set(fichajes.map(f => f.fecha_hora?.slice(0,10))).size}</div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* TAB HISTORIAL */}
+        {tab === 'historial' && (
+          <div className="seccion">
+            <div className="seccion-titulo">Mis registros recientes</div>
+            {fichajes.length === 0 ? (
+              <div className="vacio">{t('no_hay_registros')}</div>
+            ) : (
+              <div className="tabla-wrap">
+                {fichajes.slice(0, 30).map((f) => (
+                  <div key={f.id} className="fila-fichaje">
+                    <span className="fila-fecha">{formatFecha(f.fecha_hora)}</span>
+                    <span className={`fila-tipo ${f.tipo}`}>{f.tipo}</span>
+                    <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
     </div>
