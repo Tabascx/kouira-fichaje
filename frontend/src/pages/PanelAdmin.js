@@ -239,37 +239,38 @@ export default function PanelAdmin() {
                 </div>
                 {resumen.length === 0 ? <div className="vacio">{t('sin_datos_mes')}</div> : (
                     <>
-                      {/* GRÁFICO */}
                       <div style={{ width: '100%', height: 200, marginBottom: 16 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={resumen.filter(r => r.nombre !== 'Administrador').map(r => ({
-                            nombre: r.nombre.split(' ')[0],
-                            dias: Number(r.dias_trabajados),
-                            entradas: Number(r.total_entradas),
-                          }))} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                          <BarChart
+                              data={resumen.filter(r => r.nombre !== 'Administrador').map(r => ({
+                                nombre: r.nombre.split(' ')[0],
+                                dias: Number(r.dias_trabajados),
+                                horas: Number(r.horas_trabajadas) || 0,
+                              }))}
+                              margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                          >
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                             <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
                             <YAxis tick={{ fontSize: 11 }} />
                             <Tooltip
-                                formatter={(value, name) => [value, name === 'dias' ? t('dias') : t('entrada')]}
+                                formatter={(value, name) => [value, name === 'dias' ? t('dias') : t('horas_trabajadas')]}
                                 contentStyle={{ borderRadius: 8, fontSize: 12 }}
                             />
-                            <Legend formatter={(value) => value === 'dias' ? t('dias') : t('entrada')} />
-                            <Bar dataKey="dias" fill="#185FA5" radius={[4,4,0,0]} name="dias" />
-                            <Bar dataKey="entradas" fill="#1D9E75" radius={[4,4,0,0]} name="entradas" />
+                            <Legend formatter={(value) => value === 'dias' ? t('dias') : t('horas_trabajadas')} />
+                            <Bar dataKey="dias"  fill="#185FA5" radius={[4,4,0,0]} name="dias" />
+                            <Bar dataKey="horas" fill="#1D9E75" radius={[4,4,0,0]} name="horas" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
 
-                      {/* TABLA */}
                       <div className="tabla-wrap">
                         {resumen.filter(r => r.nombre !== 'Administrador').map((r) => (
                             <div key={r.id} className="fila-resumen">
                               <div className="resumen-nombre">{r.nombre}</div>
-                              <div className="resumen-dias">{r.dias_trabajados} {t('dias')}</div>
+                              <div className="resumen-dias">{r.dias_trabajados} {t('dias')} · {r.horas_trabajadas}h</div>
                               <div className="btns-exportar">
                                 <button className="btn-exportar excel" onClick={() => descargar('excel', r.id, r.nombre)}>⬇ Excel</button>
-                                <button className="btn-exportar pdf" onClick={() => descargar('pdf', r.id, r.nombre)}>⬇ PDF</button>
+                                <button className="btn-exportar pdf"   onClick={() => descargar('pdf',   r.id, r.nombre)}>⬇ PDF</button>
                               </div>
                             </div>
                         ))}
