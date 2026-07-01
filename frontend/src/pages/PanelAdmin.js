@@ -23,11 +23,11 @@ export default function PanelAdmin() {
   const [lang, setLangState]               = useState(getLang());
 
   const motivoOptions = [
-    { value: '', label: 'Motivo' },
-    { value: 'baja_medica', label: 'Baja médica' },
-    { value: 'vacaciones', label: 'Vacaciones' },
-    { value: 'permiso', label: 'Permiso' },
-    { value: 'otro', label: 'Otro' },
+    { value: '', label: t('motivo') },
+    { value: 'baja_medica', label: t('baja_medica') },
+    { value: 'vacaciones', label: t('vacaciones') },
+    { value: 'permiso', label: t('permiso') },
+    { value: 'otro', label: t('otro') },
   ];
 
   const [mesSeleccionado, setMesSeleccionado] = useState(() => {
@@ -54,11 +54,11 @@ export default function PanelAdmin() {
     setMsgNuevo(null);
     try {
       await api.post('/trabajadores', nuevoForm);
-      setMsgNuevo({ tipo: 'ok', texto: `Trabajador "${nuevoForm.nombre}" creado correctamente` });
+      setMsgNuevo({ tipo: 'ok', texto: t('crear_trabajador_exito') });
       setNuevoForm({ nombre: '', username: '', password: '' });
       cargarTrabajadores();
     } catch (err) {
-      setMsgNuevo({ tipo: 'error', texto: err.response?.data?.error || 'Error al crear trabajador' });
+      setMsgNuevo({ tipo: 'error', texto: err.response?.data?.error || t('error_crear_trabajador') });
     }
   };
 
@@ -67,13 +67,13 @@ export default function PanelAdmin() {
   const guardarEditar = async (e) => {
     e.preventDefault();
     try { await api.put(`/trabajadores/${modalEditar.id}`, formEditar); setModalEditar(null); cargarTrabajadores(); }
-    catch (err) { alert(err.response?.data?.error || 'Error al editar'); }
+    catch (err) { alert(err.response?.data?.error || t('error_crear_trabajador')); }
   };
 
   const eliminarTrabajador = async (trab) => {
-    if (!window.confirm(`¿Eliminar a ${trab.nombre}?\n\nSe borrarán todos sus fichajes y ausencias.`)) return;
+    if (!window.confirm(`${t('eliminar')} ${trab.nombre}?`)) return;
     try { await api.delete(`/trabajadores/${trab.id}`); cargarTrabajadores(); }
-    catch (err) { alert(err.response?.data?.error || 'Error al eliminar'); }
+    catch (err) { alert(err.response?.data?.error || t('error_registrar')); }
   };
 
   const toggleActivo = async (trab) => {
@@ -87,7 +87,7 @@ export default function PanelAdmin() {
       setModalAusencia(null);
       setFormAusencia({ fecha: '', justificada: false, motivo_tipo: '', motivo: '' });
       cargarAusencias();
-    } catch (err) { alert(err.response?.data?.error || 'Error al guardar ausencia'); }
+    } catch (err) { alert(err.response?.data?.error || t('error_guardar_ausencia')); }
   };
 
   const toggleJustificada = async (ausencia) => {
@@ -95,38 +95,38 @@ export default function PanelAdmin() {
   };
 
   const eliminarAusencia = async (id) => {
-    if (!window.confirm('¿Eliminar esta ausencia?')) return;
+    if (!window.confirm(t('confirmar_eliminar_ausencia'))) return;
     try { await api.delete(`/ausencias/${id}`); cargarAusencias(); } catch {}
   };
 
   const resetPassword = async (trabajador) => {
-    if (!window.confirm(`¿Restablecer contraseña de ${trabajador.nombre}?`)) return;
+    if (!window.confirm(t('confirmar_restablecer_pass'))) return;
     try { const { data } = await api.post(`/trabajadores/${trabajador.id}/reset-password`); setResetInfo({ nombre: trabajador.nombre, tempPassword: data.tempPassword }); }
-    catch (err) { alert(err.response?.data?.error || 'Error'); }
+    catch (err) { alert(err.response?.data?.error || t('error_registrar')); }
   };
 
   const copiarPassword = async () => {
-    try { await navigator.clipboard.writeText(resetInfo.tempPassword); alert('Copiada'); }
+    try { await navigator.clipboard.writeText(resetInfo.tempPassword); alert(t('copiada')); }
     catch { alert(resetInfo.tempPassword); }
   };
 
   const registrarFichajeManual = async () => {
-    if (!formFichajeManual.usuario_id || !formFichajeManual.fecha_hora) { alert('Selecciona trabajador y hora'); return; }
+    if (!formFichajeManual.usuario_id || !formFichajeManual.fecha_hora) { alert(t('error_registrar')); return; }
     try {
       await api.post('/fichajes/manual', { usuario_id: Number(formFichajeManual.usuario_id), tipo: formFichajeManual.tipo, fecha_hora: formFichajeManual.fecha_hora });
-      setMsgFichaje({ tipo: 'ok', texto: 'Fichaje registrado correctamente' });
+      setMsgFichaje({ tipo: 'ok', texto: t('crear_trabajador_exito') });
       setFormFichajeManual({ usuario_id: '', tipo: 'entrada', fecha_hora: new Date().toISOString().slice(0,16) });
       cargarHoy();
       setTimeout(() => setMsgFichaje(null), 3000);
     } catch (err) {
-      setMsgFichaje({ tipo: 'error', texto: err.response?.data?.error || 'Error al registrar' });
+      setMsgFichaje({ tipo: 'error', texto: err.response?.data?.error || t('error_registrar') });
     }
   };
 
   const eliminarFichaje = async (id) => {
-    if (!window.confirm('¿Eliminar este fichaje?')) return;
+    if (!window.confirm(t('confirmar_eliminar_fichaje'))) return;
     try { await api.delete(`/fichajes/${id}`); cargarHoy(); }
-    catch (err) { alert(err.response?.data?.error || 'Error'); }
+    catch (err) { alert(err.response?.data?.error || t('error_registrar')); }
   };
 
   const descargar = async (formato, usuario_id, nombre) => {
@@ -137,37 +137,38 @@ export default function PanelAdmin() {
       enlace.download = `fichajes_${nombre.replace(/ /g, '_')}_${mesSeleccionado}.${formato === 'excel' ? 'xlsx' : 'pdf'}`;
       enlace.click();
       URL.revokeObjectURL(enlace.href);
-    } catch (err) { alert('Error al exportar: ' + err.message); }
+    } catch (err) { alert(`${t('error_descarga')}: ${err.message}`); }
   };
 
-  const formatHora  = (iso) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  const formatFecha = (iso) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+  const locale = getLang() === 'ar' ? 'ar' : 'es-ES';
+  const formatHora  = (iso) => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const formatFecha = (iso) => new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
   const trabajadoresSolo = trabajadores.filter(tr => tr.rol === 'trabajador' && tr.activo);
   const presentesHoy = new Set(fichajesHoy.filter(f => f.tipo === 'entrada').map(f => f.usuario_id)).size;
 
   return (
-      <div className="panel-fondo">
+      <div className="panel-fondo" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
         <div className="panel-wrap">
 
           <div className="cabecera">
             <div>
-              <div className="cabecera-empresa">🏭 Kouira S.L</div>
-              <div className="cabecera-nombre">Panel de administración</div>
+              <div className="cabecera-empresa">🏭 {t('empresa')}</div>
+              <div className="cabecera-nombre">{t('panel_admin')}</div>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <select className="lang-select" value={lang} onChange={(e) => cambiarLang(e.target.value)}>
                 <option value="es">ES</option>
                 <option value="ar">AR</option>
               </select>
-              <button className="btn-logout" onClick={logout}>Salir</button>
+              <button className="btn-logout" onClick={logout}>{t('salir')}</button>
             </div>
           </div>
 
           <div className="tabs">
-            <button className={`tab ${tab === 'hoy'          ? 'activo' : ''}`} onClick={() => setTab('hoy')}>Hoy</button>
-            <button className={`tab ${tab === 'resumen'      ? 'activo' : ''}`} onClick={() => setTab('resumen')}>Resumen</button>
-            <button className={`tab ${tab === 'ausencias'    ? 'activo' : ''}`} onClick={() => setTab('ausencias')}>Ausencias</button>
-            <button className={`tab ${tab === 'trabajadores' ? 'activo' : ''}`} onClick={() => setTab('trabajadores')}>Equipo</button>
+            <button className={`tab ${tab === 'hoy'          ? 'activo' : ''}`} onClick={() => setTab('hoy')}>{t('hoy')}</button>
+            <button className={`tab ${tab === 'resumen'      ? 'activo' : ''}`} onClick={() => setTab('resumen')}>{t('resumen')}</button>
+            <button className={`tab ${tab === 'ausencias'    ? 'activo' : ''}`} onClick={() => setTab('ausencias')}>{t('ausencias')}</button>
+            <button className={`tab ${tab === 'trabajadores' ? 'activo' : ''}`} onClick={() => setTab('trabajadores')}>{t('equipo')}</button>
           </div>
 
           {/* HOY */}
@@ -175,25 +176,25 @@ export default function PanelAdmin() {
               <>
                 <div className="stats-grid" style={{ marginBottom: 12 }}>
                   <div className="stat-card">
-                    <div className="stat-label">Presentes hoy</div>
+                    <div className="stat-label">{t('fichados_hoy')}</div>
                     <div className="stat-valor" style={{ color: '#1D9E75' }}>{presentesHoy}</div>
                   </div>
                   <div className="stat-card">
-                    <div className="stat-label">Total fichajes</div>
-                    <div className="stat-valor">{fichajesHoy.length}</div>
+                    <div className="stat-label">{t('faltan_fichar')}</div>
+                    <div className="stat-valor" style={{ color: '#E24B4A' }}>{trabajadoresSolo.length - presentesHoy}</div>
                   </div>
                 </div>
 
                 <div className="seccion">
                   <div className="seccion-titulo">
-                    Fichajes de hoy — {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    {t('fichajes_hoy')} — {new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
                   </div>
-                  {fichajesHoy.length === 0 ? <div className="vacio">No hay fichajes hoy</div> : (
+                  {fichajesHoy.length === 0 ? <div className="vacio">{t('sin_fichajes_hoy')}</div> : (
                       <div className="tabla-wrap">
                         {fichajesHoy.map((f) => (
                             <div key={f.id} className="fila-fichaje">
                               <span className="fila-nombre">{f.nombre}</span>
-                              <span className={`fila-tipo ${f.tipo}`}>{f.tipo}</span>
+                              <span className={`fila-tipo ${f.tipo}`}>{t(f.tipo)}</span>
                               <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
                               <button className="btn-mini rojo" onClick={() => eliminarFichaje(f.id)}>✕</button>
                             </div>
@@ -206,24 +207,24 @@ export default function PanelAdmin() {
                   <div className="fichaje-manual-header">
                     <div className="fichaje-manual-icono">✏️</div>
                     <div>
-                      <div className="fichaje-manual-titulo">Fichaje manual</div>
-                      <div className="fichaje-manual-sub">Registra una entrada o salida a una hora específica</div>
+                      <div className="fichaje-manual-titulo">{t('fichaje_manual')}</div>
+                      <div className="fichaje-manual-sub">{t('hora_fichaje')}</div>
                     </div>
                   </div>
                   <div className="fichaje-manual-form">
                     <select value={formFichajeManual.usuario_id} onChange={(e) => setFormFichajeManual({ ...formFichajeManual, usuario_id: e.target.value })} className="form-select">
-                      <option value="">— Trabajador —</option>
+                      <option value="">— {t('usuario_del_fichaje')} —</option>
                       {trabajadoresSolo.map(trab => <option key={trab.id} value={trab.id}>{trab.nombre}</option>)}
                     </select>
                     <div className="fichaje-manual-fila">
                       <select value={formFichajeManual.tipo} onChange={(e) => setFormFichajeManual({ ...formFichajeManual, tipo: e.target.value })} className="form-select">
-                        <option value="entrada">Entrada</option>
-                        <option value="salida">Salida</option>
+                        <option value="entrada">{t('entrada')}</option>
+                        <option value="salida">{t('salida')}</option>
                       </select>
                       <input type="datetime-local" value={formFichajeManual.fecha_hora} onChange={(e) => setFormFichajeManual({ ...formFichajeManual, fecha_hora: e.target.value })} className="form-input" />
                     </div>
                     {msgFichaje && <div className={`alerta ${msgFichaje.tipo}`}>{msgFichaje.texto}</div>}
-                    <button className="btn-login" onClick={registrarFichajeManual}>Registrar fichaje</button>
+                    <button className="btn-login" onClick={registrarFichajeManual}>{t('crear_fichaje_manual')}</button>
                   </div>
                 </div>
               </>
@@ -233,15 +234,15 @@ export default function PanelAdmin() {
           {tab === 'resumen' && (
               <div className="seccion">
                 <div className="seccion-header">
-                  <div className="seccion-titulo" style={{ margin: 0 }}>Resumen mensual</div>
+                  <div className="seccion-titulo" style={{ margin: 0 }}>{t('resumen_mensual')}</div>
                   <input type="month" value={mesSeleccionado} onChange={(e) => setMesSeleccionado(e.target.value)} className="input-mes" />
                 </div>
-                {resumen.length === 0 ? <div className="vacio">Sin datos</div> : (
+                {resumen.length === 0 ? <div className="vacio">{t('sin_datos_mes')}</div> : (
                     <div className="tabla-wrap">
                       {resumen.filter(r => r.nombre !== 'Administrador').map((r) => (
                           <div key={r.id} className="fila-resumen">
                             <div className="resumen-nombre">{r.nombre}</div>
-                            <div className="resumen-dias">{r.dias_trabajados} días</div>
+                            <div className="resumen-dias">{r.dias_trabajados} {t('dias')}</div>
                             <div className="btns-exportar">
                               <button className="btn-exportar excel" onClick={() => descargar('excel', r.id, r.nombre)}>⬇ Excel</button>
                               <button className="btn-exportar pdf"   onClick={() => descargar('pdf',   r.id, r.nombre)}>⬇ PDF</button>
@@ -257,11 +258,11 @@ export default function PanelAdmin() {
           {tab === 'ausencias' && (
               <div className="seccion">
                 <div className="seccion-header">
-                  <div className="seccion-titulo" style={{ margin: 0 }}>Ausencias</div>
+                  <div className="seccion-titulo" style={{ margin: 0 }}>{t('ausencias')}</div>
                   <input type="month" value={mesSeleccionado} onChange={(e) => setMesSeleccionado(e.target.value)} className="input-mes" />
                 </div>
-                <div className="seccion-titulo" style={{ marginBottom: 8, marginTop: 12 }}>Registrar nueva ausencia</div>
-                {trabajadoresSolo.length === 0 ? <div className="vacio" style={{ fontSize: 12 }}>Cargando...</div> : (
+                <div className="seccion-titulo" style={{ marginBottom: 8, marginTop: 12 }}>{t('registrar_nueva_ausencia')}</div>
+                {trabajadoresSolo.length === 0 ? <div className="vacio" style={{ fontSize: 12 }}>{t('entrando')}</div> : (
                     <div className="chips-trabajadores">
                       {trabajadoresSolo.map(trab => (
                           <button key={trab.id} className="btn-trabajador"
@@ -272,7 +273,7 @@ export default function PanelAdmin() {
                     </div>
                 )}
                 <div style={{ marginTop: 16 }}>
-                  {ausencias.length === 0 ? <div className="vacio">No hay ausencias este mes</div> : (
+                  {ausencias.length === 0 ? <div className="vacio">{t('sin_ausencias')}</div> : (
                       <div className="tabla-wrap">
                         {ausencias.map((a) => (
                             <div key={a.id} className="fila-ausencia">
@@ -280,15 +281,15 @@ export default function PanelAdmin() {
                                 <span className="fila-nombre">{a.nombre}</span>
                                 <span className="fila-hora">{formatFecha(a.fecha)}</span>
                                 <span className={`fila-tipo ${a.justificada ? 'entrada' : 'salida'}`}>
-                          {a.justificada ? 'justificada' : 'injustificada'}
+                          {a.justificada ? t('justificada') : t('injustificada')}
                         </span>
                               </div>
                               {a.motivo && <div className="ausencia-motivo">📝 {a.motivo}</div>}
                               <div className="ausencia-acciones">
                                 <button className="btn-mini" onClick={() => toggleJustificada(a)}>
-                                  {a.justificada ? 'Marcar injust.' : 'Justificar'}
+                                  {a.justificada ? t('marcar_injusta') : t('justificar_btn')}
                                 </button>
-                                <button className="btn-mini rojo" onClick={() => eliminarAusencia(a.id)}>✕ Eliminar</button>
+                                <button className="btn-mini rojo" onClick={() => eliminarAusencia(a.id)}>✕ {t('eliminar')}</button>
                               </div>
                             </div>
                         ))}
@@ -301,7 +302,7 @@ export default function PanelAdmin() {
           {/* EQUIPO */}
           {tab === 'trabajadores' && (
               <div className="seccion">
-                <div className="seccion-titulo">Equipo</div>
+                <div className="seccion-titulo">{t('trabajadores_lista')}</div>
                 <div className="tabla-wrap" style={{ marginBottom: 20 }}>
                   {trabajadores.filter(tr => tr.rol === 'trabajador').map((trab) => (
                       <div key={trab.id} className="fila-trabajador">
@@ -310,11 +311,11 @@ export default function PanelAdmin() {
                           <div className="trabajador-user">@{trab.username}</div>
                         </div>
                         <span className={`fila-tipo ${trab.activo ? 'entrada' : 'salida'}`}>
-                    {trab.activo ? 'activo' : 'inactivo'}
+                    {trab.activo ? t('activo') : t('inactivo')}
                   </span>
                         <div className="trabajador-acciones">
-                          <button className="btn-mini" onClick={() => abrirEditar(trab)}>✏️</button>
-                          <button className="btn-mini" onClick={() => resetPassword(trab)}>🔑</button>
+                          <button className="btn-mini" onClick={() => abrirEditar(trab)} title={t('cambiar_pass')}>✏️</button>
+                          <button className="btn-mini" onClick={() => resetPassword(trab)} title={t('restablecer_pass')}>🔑</button>
                           <button className="btn-mini" onClick={() => toggleActivo(trab)}>{trab.activo ? '⏸' : '▶️'}</button>
                           <button className="btn-mini rojo" onClick={() => eliminarTrabajador(trab)}>🗑️</button>
                         </div>
@@ -324,23 +325,23 @@ export default function PanelAdmin() {
 
                 {resetInfo && (
                     <div className="reset-info">
-                      <div className="reset-info-titulo">✅ Contraseña temporal — {resetInfo.nombre}</div>
-                      <p className="reset-info-texto">Dásela al trabajador. Deberá cambiarla al entrar.</p>
+                      <div className="reset-info-titulo">✅ {t('contrasena_temporal_lista')} — {resetInfo.nombre}</div>
+                      <p className="reset-info-texto">{t('restablecer_info')}</p>
                       <div className="reset-info-codigo">
                         <code>{resetInfo.tempPassword}</code>
-                        <button className="btn-mini" onClick={copiarPassword}>Copiar</button>
+                        <button className="btn-mini" onClick={copiarPassword}>{t('copiar')}</button>
                       </div>
-                      <button className="btn-mini" style={{ marginTop: 8 }} onClick={() => setResetInfo(null)}>✕ Cerrar</button>
+                      <button className="btn-mini" style={{ marginTop: 8 }} onClick={() => setResetInfo(null)}>✕ {t('cancelar')}</button>
                     </div>
                 )}
 
-                <div className="seccion-titulo" style={{ marginTop: 20 }}>Añadir trabajador</div>
+                <div className="seccion-titulo" style={{ marginTop: 20 }}>{t('crear_trabajador')}</div>
                 <form onSubmit={crearTrabajador} className="form-nuevo">
-                  <input placeholder="Nombre completo" value={nuevoForm.nombre} onChange={(e) => setNuevoForm({ ...nuevoForm, nombre: e.target.value })} required />
-                  <input placeholder="Usuario (ej. ana.garcia)" value={nuevoForm.username} onChange={(e) => setNuevoForm({ ...nuevoForm, username: e.target.value })} required />
-                  <input type="password" placeholder="Contraseña inicial" value={nuevoForm.password} onChange={(e) => setNuevoForm({ ...nuevoForm, password: e.target.value })} required />
+                  <input placeholder={t('nombre_completo')} value={nuevoForm.nombre} onChange={(e) => setNuevoForm({ ...nuevoForm, nombre: e.target.value })} required />
+                  <input placeholder={t('usuario')} value={nuevoForm.username} onChange={(e) => setNuevoForm({ ...nuevoForm, username: e.target.value })} required />
+                  <input type="password" placeholder={t('contrasena_inicial')} value={nuevoForm.password} onChange={(e) => setNuevoForm({ ...nuevoForm, password: e.target.value })} required />
                   {msgNuevo && <div className={`alerta ${msgNuevo.tipo}`}>{msgNuevo.texto}</div>}
-                  <button type="submit" className="btn-login">Crear trabajador</button>
+                  <button type="submit" className="btn-login">{t('crear_trabajador')}</button>
                 </form>
               </div>
           )}
@@ -349,15 +350,15 @@ export default function PanelAdmin() {
           {modalEditar && (
               <div className="modal-fondo" onClick={() => setModalEditar(null)}>
                 <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-titulo">✏️ Editar trabajador</div>
+                  <div className="modal-titulo">✏️ {t('cambiar_pass')}</div>
                   <form onSubmit={guardarEditar} className="form-nuevo">
-                    <label className="form-label">Nombre completo</label>
+                    <label className="form-label">{t('nombre_completo')}</label>
                     <input value={formEditar.nombre} onChange={(e) => setFormEditar({ ...formEditar, nombre: e.target.value })} required className="form-input" />
-                    <label className="form-label">Usuario</label>
+                    <label className="form-label">{t('usuario')}</label>
                     <input value={formEditar.username} onChange={(e) => setFormEditar({ ...formEditar, username: e.target.value })} required className="form-input" />
                     <div className="modal-btns">
-                      <button type="button" className="btn-logout" onClick={() => setModalEditar(null)}>Cancelar</button>
-                      <button type="submit" className="btn-login">Guardar</button>
+                      <button type="button" className="btn-logout" onClick={() => setModalEditar(null)}>{t('cancelar')}</button>
+                      <button type="submit" className="btn-login">{t('guardar')}</button>
                     </div>
                   </form>
                 </div>
@@ -368,24 +369,24 @@ export default function PanelAdmin() {
           {modalAusencia && (
               <div className="modal-fondo" onClick={() => setModalAusencia(null)}>
                 <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-titulo">Registrar ausencia — {modalAusencia.nombre}</div>
+                  <div className="modal-titulo">{t('registrar_ausencia')} — {modalAusencia.nombre}</div>
                   <form onSubmit={guardarAusencia} className="form-nuevo">
-                    <label className="form-label">Fecha</label>
+                    <label className="form-label">{t('fecha')}</label>
                     <input type="date" value={formAusencia.fecha} onChange={(e) => setFormAusencia({ ...formAusencia, fecha: e.target.value })} required className="form-input" />
                     <label className="checkbox-label">
                       <input type="checkbox" checked={formAusencia.justificada} onChange={(e) => {
                         const checked = e.target.checked;
                         setFormAusencia({ ...formAusencia, justificada: checked, motivo_tipo: checked && !formAusencia.motivo_tipo ? 'baja_medica' : formAusencia.motivo_tipo });
                       }} />
-                      Ausencia justificada
+                      {t('ausencia_justificada')}
                     </label>
                     <select value={formAusencia.motivo_tipo} onChange={(e) => setFormAusencia({ ...formAusencia, motivo_tipo: e.target.value })} className="form-select">
                       {motivoOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
-                    <input placeholder="Motivo (opcional)" value={formAusencia.motivo} onChange={(e) => setFormAusencia({ ...formAusencia, motivo: e.target.value })} className="form-input" />
+                    <input placeholder={t('motivo')} value={formAusencia.motivo} onChange={(e) => setFormAusencia({ ...formAusencia, motivo: e.target.value })} className="form-input" />
                     <div className="modal-btns">
-                      <button type="button" className="btn-logout" onClick={() => setModalAusencia(null)}>Cancelar</button>
-                      <button type="submit" className="btn-login">Guardar</button>
+                      <button type="button" className="btn-logout" onClick={() => setModalAusencia(null)}>{t('cancelar')}</button>
+                      <button type="submit" className="btn-login">{t('guardar')}</button>
                     </div>
                   </form>
                 </div>
