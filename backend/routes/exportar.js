@@ -251,5 +251,129 @@ router.get('/pdf', verificarToken, soloAdmin, async (req, res) => {
     res.status(500).json({ error: 'Error al generar el PDF' });
   }
 });
+// GET /api/exportar/mio/excel — el propio trabajador descarga su Excel
+router.get('/mio/excel', verificarToken, async (req, res) => {
+  const { mes } = req.query;
+  const usuario_id = req.usuario.id;
+  if (!mes) return res.status(400).json({ error: 'Falta el mes' });
 
+  try {
+    const { trabajador, filas, totalMinutos, totalMinutosExtra } = await getDatosMes(usuario_id, mes);
+    const workbook = new ExcelJS.Workbook();
+    const hoja     = workbook.addWorksheet('Fichajes');
+
+    hoja.mergeCells('A1:F1');
+    hoja.getCell('A1').value = `MAHJOUB KOUIRA S.L — CIF: B72564354`;
+    hoja.getCell('A1').font  = { bold: true, size: 13 };
+    hoja.mergeCells('A2:F2');
+    hoja.getCell('A2').value = `Trabajador: ${trabajador.nombre}  |  Mes: ${mes}`;
+    hoja.getCell('A2').font  = { size: 11, color: { argb: 'FF555555' } };
+    hoja.addRow([]);
+
+    const cab = hoja.addRow(['Fecha', 'Día', 'Entrada', 'Salida', 'Horas', 'H. Extra']);
+    cab.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF185FA5' } };
+      cell.alignment = { horizontal: 'center' };
+    });
+    hoja.getColumn(1).width = 14; hoja.getColumn(2).width = 13;
+    hoja.getColumn(3).width = 12; hoja.getColumn(4).width = 12;
+    hoja.getColumn(5).width = 16; hoja.getColumn(6).width = 14;
+
+    for (const f of filas) {
+      const fila  = hoja.addRow([f.fechaStr, f.diaSem, f.entrada, f.salida, f.horasTxt, f.extraTxt]);
+      const color = f.esFinSem ? 'FFF0F0F0' : (f.esExtra ? 'FFFFF3CD' : 'FFEBF8F2');
+      fila.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
+        cell.alignment = { horizontal: 'center' };
+      });
+    }
+
+    hoja.addRow([]);
+    const tot = hoja.addRow(['', '', '', 'TOTAL:', `${Math.floor(totalMinutos/60)}h ${totalMinutos%60}m`, `${Math.floor(totalMinutosExtra/60)}h ${totalMinutosExtra%60}m extra`]);
+    tot.getCell(4).font = { bold: true };
+    tot.getCell(5).font = { bold: true, color: { argb: 'FF185FA5' } };
+
+    const nombreArchivo = `mis_fichajes_${trabajador.nombre.replace(/ /g,'_')}_${mes}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombreArchivo}"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al generar Excel' });
+  }
+});
+
+// GET /api/exportar/mio/pdf — el propio trabajador descarga su PDF
+router.get('/mio/pdf', verificarToken, async (req, res) => {
+  const { mes } = req.query;
+  const usuario_id = req.usuario.id;
+  if (!mes) return res.status(400).json({ error: 'Falta el mes' });
+
+  try {
+    const { trabajador, filas, totalMinutos, totalMinutosExtra, anyo, numMes } = await getDatosMes(usuario_id, mes);
+    const nombreMes = new Date(anyo, numMes - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="mis_fichajes_${trabajador.nombre.replace(/ /g,'_')}_${mes}.pdf"`);
+    doc.pipe(res);
+
+    doc.fontSize(15).font('Helvetica-Bold').text('MAHJOUB KOUIRA S.L', 40, 40);
+    doc.fontSize(9).font('Helvetica').fillColor('#555555').text('CIF: B72564354', 40, 58);
+    doc.moveTo(40, 72).lineTo(555, 72).strokeColor('#185FA5').lineWidth(1.5).stroke();
+
+    doc.roundedRect(40, 80, 515, 36, 6).fillAndStroke('#EBF4FF', '#185FA5');
+    doc.fillColor('#185FA5').font('Helvetica-Bold').fontSize(10).text('Trabajador:', 54, 91);
+    doc.fillColor('#1a1a1a').font('Helvetica').text(trabajador.nombre, 130, 91);
+    doc.fillColor('#185FA5').font('Helvetica-Bold').text('Mes:', 330, 91);
+    doc.fillColor('#1a1a1a').font('Helvetica').text(nombreMes, 365, 91);
+
+    const colX  = [40, 125, 220, 305, 385, 470];
+    const colW  = [80, 90, 80, 80, 80, 85];
+    const heads = ['Fecha', 'Día', 'Entrada', 'Salida', 'Horas', 'H. Extra'];
+    let y = 130;
+
+    doc.rect(40, y, 515, 18).fill('#185FA5');
+    heads.forEach((h, i) => {
+      doc.fillColor('white').font('Helvetica-Bold').fontSize(8.5).text(h, colX[i] + 2, y + 5, { width: colW[i], align: 'center' });
+    });
+    y += 18;
+
+    for (const f of filas) {
+      if (y > 750) { doc.addPage(); y = 40; }
+      const bg = f.esFinSem ? '#F5F5F5' : (f.esExtra ? '#FFF8E1' : '#F0FBF5');
+      doc.rect(40, y, 515, 15).fill(bg);
+      [f.fechaStr, f.diaSem, f.entrada, f.salida, f.horasTxt, f.extraTxt].forEach((v, i) => {
+        const color = f.esFinSem ? '#999' : (i === 5 && f.esExtra ? '#CC6600' : '#1a1a1a');
+        doc.fillColor(color).font('Helvetica').fontSize(8).text(v, colX[i] + 2, y + 4, { width: colW[i], align: 'center' });
+      });
+      doc.moveTo(40, y+15).lineTo(555, y+15).strokeColor('#EEE').lineWidth(0.4).stroke();
+      y += 15;
+    }
+
+    y += 8;
+    doc.rect(40, y, 515, 22).fill('#EBF4FF');
+    doc.fillColor('#185FA5').font('Helvetica-Bold').fontSize(9)
+        .text(`TOTAL: ${Math.floor(totalMinutos/60)}h ${totalMinutos%60}m`, 40, y+7, { width: 260, align: 'center' });
+    doc.fillColor('#CC6600').font('Helvetica-Bold').fontSize(9)
+        .text(`H. EXTRA: ${Math.floor(totalMinutosExtra/60)}h ${totalMinutosExtra%60}m`, 300, y+7, { width: 255, align: 'center' });
+    y += 32;
+
+    doc.moveTo(40, y+20).lineTo(220, y+20).strokeColor('#AAA').lineWidth(0.5).stroke();
+    doc.moveTo(335, y+20).lineTo(555, y+20).stroke();
+    doc.fillColor('#555').font('Helvetica').fontSize(8)
+        .text('Firma trabajador', 40, y+26, { width: 180, align: 'center' })
+        .text('Firma empresa', 335, y+26, { width: 220, align: 'center' });
+
+    doc.fillColor('#AAA').fontSize(6.5)
+        .text('Documento generado conforme al RD-Ley 8/2019. Los registros deben conservarse 4 años.', 40, 818, { align: 'center', width: 515 });
+
+    doc.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al generar PDF' });
+  }
+});
 module.exports = router;

@@ -17,7 +17,8 @@ export default function PanelTrabajador() {
   const [errorPass, setErrorPass] = useState('');
   const [cargandoPass, setCargandoPass] = useState(false);
   const [tab, setTab] = useState('fichar');
-  const [mesActual] = useState(() => {
+  const [descargando, setDescargando] = useState(false);
+  const [mesSeleccionado, setMesSeleccionado] = useState(() => {
     const hoy = new Date();
     return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
   });
@@ -32,14 +33,14 @@ export default function PanelTrabajador() {
     cargarAusencias();
     const yaSeAvisoDeCambio = localStorage.getItem(`cambio-pass-${usuario.id}`);
     if (!yaSeAvisoDeCambio) setMostrarCambioPass(true);
-  }, [usuario.id, mesActual]);
+  }, [usuario.id, mesSeleccionado]);
 
   const cargarFichajes = async () => {
     try { const { data } = await api.get('/fichajes/mios'); setFichajes(data); } catch {}
   };
 
   const cargarAusencias = async () => {
-    try { const { data } = await api.get(`/ausencias/mias?mes=${mesActual}`); setAusencias(data); } catch {}
+    try { const { data } = await api.get(`/ausencias/mias?mes=${mesSeleccionado}`); setAusencias(data); } catch {}
   };
 
   const cambiarContrasena = async (e) => {
@@ -76,6 +77,25 @@ export default function PanelTrabajador() {
     }
   };
 
+  const descargarMisPDF = async (formato) => {
+    setDescargando(true);
+    try {
+      const { data: blob } = await api.get(
+          `/exportar/mio/${formato}?mes=${mesSeleccionado}`,
+          { responseType: 'blob' }
+      );
+      const enlace = document.createElement('a');
+      enlace.href  = URL.createObjectURL(blob);
+      enlace.download = `mis_fichajes_${mesSeleccionado}.${formato === 'excel' ? 'xlsx' : 'pdf'}`;
+      enlace.click();
+      URL.revokeObjectURL(enlace.href);
+    } catch (err) {
+      alert(t('error_descarga'));
+    } finally {
+      setDescargando(false);
+    }
+  };
+
   const ultimoFichaje = fichajes[0];
   const tocaSalida    = ultimoFichaje?.tipo === 'entrada';
 
@@ -101,159 +121,145 @@ export default function PanelTrabajador() {
   const totalMinutos = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
 
   return (
-    <div className="panel-fondo">
-      <div className="panel-wrap">
+      <div className="panel-fondo">
+        <div className="panel-wrap">
 
-        {/* MODAL CAMBIO CONTRASEÑA */}
-        {mostrarCambioPass && (
-          <div className="modal-fondo">
-            <div className="modal-card">
-              <div className="modal-icono">🔐</div>
-              <div className="modal-titulo">Cambia tu contraseña</div>
-              <p className="modal-desc">Es tu primera vez. Pon una contraseña que recuerdes.</p>
-              <form onSubmit={cambiarContrasena} className="form-nuevo">
-                <input
-                  type="password"
-                  placeholder="Tu contraseña actual"
-                  value={formPass.actual}
-                  onChange={(e) => setFormPass({ ...formPass, actual: e.target.value })}
-                  autoFocus
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="Nueva contraseña"
-                  value={formPass.nueva}
-                  onChange={(e) => setFormPass({ ...formPass, nueva: e.target.value })}
-                  required
-                />
-                <input
-                  type="password"
-                  placeholder="Repite la contraseña"
-                  value={formPass.confirma}
-                  onChange={(e) => setFormPass({ ...formPass, confirma: e.target.value })}
-                  required
-                />
-                {errorPass && <div className="alerta error">{errorPass}</div>}
-                <button type="submit" className="btn-login" disabled={cargandoPass}>
-                  {cargandoPass ? 'Guardando...' : 'Guardar contraseña'}
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* CABECERA */}
-        <div className="cabecera">
-          <div>
-            <div className="cabecera-empresa">🏭 Kouira S.L</div>
-            <div className="cabecera-nombre">{usuario.nombre}</div>
-          </div>
-          <button className="btn-logout" onClick={logout}>{t('salir')}</button>
-        </div>
-
-        {/* TABS TRABAJADOR */}
-        <div className="tabs">
-          <button className={`tab ${tab === 'fichar' ? 'activo' : ''}`} onClick={() => setTab('fichar')}>⏱ Fichar</button>
-          <button className={`tab ${tab === 'resumen' ? 'activo' : ''}`} onClick={() => setTab('resumen')}>📊 Resumen</button>
-          <button className={`tab ${tab === 'historial' ? 'activo' : ''}`} onClick={() => setTab('historial')}>📋 Historial</button>
-        </div>
-
-        {/* TAB RESUMEN */}
-        {tab === 'resumen' && (
-          <div className="seccion">
-            <div className="seccion-titulo">{t('horas_mes_actual')}</div>
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-label">{t('horas_trabajadas')}</div>
-                <div className="stat-valor">{totalHoras}h {totalMinutos}m</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">{t('ausencias_mes')}</div>
-                <div className="stat-valor">{ausencias.length}</div>
-              </div>
-            </div>
-            {ausencias.length > 0 && (
-              <>
-                <div style={{ marginTop: 16, marginBottom: 10 }}>
-                  <div className="seccion-titulo">{t('ausencias_mes')}</div>
+          {/* MODAL CAMBIO CONTRASEÑA */}
+          {mostrarCambioPass && (
+              <div className="modal-fondo">
+                <div className="modal-card">
+                  <div className="modal-icono">🔐</div>
+                  <div className="modal-titulo">Cambia tu contraseña</div>
+                  <p className="modal-desc">Es tu primera vez. Pon una contraseña que recuerdes.</p>
+                  <form onSubmit={cambiarContrasena} className="form-nuevo">
+                    <input type="password" placeholder="Tu contraseña actual" value={formPass.actual} onChange={(e) => setFormPass({ ...formPass, actual: e.target.value })} autoFocus required />
+                    <input type="password" placeholder="Nueva contraseña" value={formPass.nueva} onChange={(e) => setFormPass({ ...formPass, nueva: e.target.value })} required />
+                    <input type="password" placeholder="Repite la contraseña" value={formPass.confirma} onChange={(e) => setFormPass({ ...formPass, confirma: e.target.value })} required />
+                    {errorPass && <div className="alerta error">{errorPass}</div>}
+                    <button type="submit" className="btn-login" disabled={cargandoPass}>
+                      {cargandoPass ? 'Guardando...' : 'Guardar contraseña'}
+                    </button>
+                  </form>
                 </div>
-                {ausencias.map((a) => (
-                  <div key={a.id} className="fila-ausencia">
-                    <div className="ausencia-top">
-                      <strong>{new Date(a.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</strong>
-                      <span className={`fila-tipo ${a.justificada ? 'entrada' : 'salida'}`}>
+              </div>
+          )}
+
+          {/* CABECERA */}
+          <div className="cabecera">
+            <div>
+              <div className="cabecera-empresa">🏭 Kouira S.L</div>
+              <div className="cabecera-nombre">{usuario.nombre}</div>
+            </div>
+            <button className="btn-logout" onClick={logout}>{t('salir')}</button>
+          </div>
+
+          {/* TABS */}
+          <div className="tabs">
+            <button className={`tab ${tab === 'fichar'   ? 'activo' : ''}`} onClick={() => setTab('fichar')}>⏱ Fichar</button>
+            <button className={`tab ${tab === 'resumen'  ? 'activo' : ''}`} onClick={() => setTab('resumen')}>📊 Resumen</button>
+            <button className={`tab ${tab === 'historial'? 'activo' : ''}`} onClick={() => setTab('historial')}>📋 Historial</button>
+          </div>
+
+          {/* TAB FICHAR */}
+          {tab === 'fichar' && (
+              <>
+                <div className="fichar-card">
+                  <div className="reloj">{hora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+                  <div className="fecha-hoy">{hora.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+                  {mensaje && <div className={`alerta ${mensaje.tipo}`}>{mensaje.texto}</div>}
+                  <div className="botones-fichar">
+                    <button className="btn-fichar entrada" onClick={() => fichar('entrada')} disabled={cargando || tocaSalida}>↓ {t('fichar_entrada')}</button>
+                    <button className="btn-fichar salida"  onClick={() => fichar('salida')}  disabled={cargando || !tocaSalida}>↑ {t('fichar_salida')}</button>
+                  </div>
+                  {ultimoFichaje && (
+                      <div className="ultimo-fichaje">
+                        {t('ultimo_registro')}: <strong>{ultimoFichaje.tipo}</strong> a las {formatHora(ultimoFichaje.fecha_hora)}
+                      </div>
+                  )}
+                </div>
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <div className="stat-label">{t('horas_trabajadas')}</div>
+                    <div className="stat-valor">{totalHoras}h {totalMinutos}m</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">{t('dias')}</div>
+                    <div className="stat-valor">{new Set(fichajes.map(f => f.fecha_hora?.slice(0,10))).size}</div>
+                  </div>
+                </div>
+              </>
+          )}
+
+          {/* TAB RESUMEN */}
+          {tab === 'resumen' && (
+              <div className="seccion">
+                <div className="seccion-header">
+                  <div className="seccion-titulo" style={{ margin: 0 }}>{t('horas_mes_actual')}</div>
+                  <input type="month" value={mesSeleccionado} onChange={(e) => setMesSeleccionado(e.target.value)} className="input-mes" />
+                </div>
+
+                <div className="stats-grid" style={{ marginBottom: 14 }}>
+                  <div className="stat-card">
+                    <div className="stat-label">{t('horas_trabajadas')}</div>
+                    <div className="stat-valor">{totalHoras}h {totalMinutos}m</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">{t('ausencias_mes')}</div>
+                    <div className="stat-valor">{ausencias.length}</div>
+                  </div>
+                </div>
+
+                {/* DESCARGAR */}
+                <div className="btns-exportar" style={{ marginBottom: 14 }}>
+                  <button className="btn-exportar excel" onClick={() => descargarMisPDF('excel')} disabled={descargando}>
+                    ⬇ Excel
+                  </button>
+                  <button className="btn-exportar pdf" onClick={() => descargarMisPDF('pdf')} disabled={descargando}>
+                    ⬇ PDF
+                  </button>
+                </div>
+
+                {ausencias.length > 0 && (
+                    <>
+                      <div className="seccion-titulo">{t('ausencias_mes')}</div>
+                      {ausencias.map((a) => (
+                          <div key={a.id} className="fila-ausencia">
+                            <div className="ausencia-top">
+                              <strong>{new Date(a.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</strong>
+                              <span className={`fila-tipo ${a.justificada ? 'entrada' : 'salida'}`}>
                         {a.justificada ? '✓ ' + t('justificada') : '✗ ' + t('injustificada')}
                       </span>
+                            </div>
+                            <div className="ausencia-motivo">{a.motivo || a.motivo_tipo || '—'}</div>
+                          </div>
+                      ))}
+                    </>
+                )}
+                {ausencias.length === 0 && <div className="vacio">{t('sin_ausencias')}</div>}
+              </div>
+          )}
+
+          {/* TAB HISTORIAL */}
+          {tab === 'historial' && (
+              <div className="seccion">
+                <div className="seccion-titulo">{t('no_hay_registros').replace('todavía', '')} — {t('horas_trabajadas')}: {totalHoras}h {totalMinutos}m</div>
+                {fichajes.length === 0 ? (
+                    <div className="vacio">{t('no_hay_registros')}</div>
+                ) : (
+                    <div className="tabla-wrap">
+                      {fichajes.slice(0, 30).map((f) => (
+                          <div key={f.id} className="fila-fichaje">
+                            <span className="fila-fecha">{formatFecha(f.fecha_hora)}</span>
+                            <span className={`fila-tipo ${f.tipo}`}>{t(f.tipo)}</span>
+                            <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
+                          </div>
+                      ))}
                     </div>
-                    <div className="ausencia-motivo">{a.motivo || a.motivo_tipo || '—'}</div>
-                  </div>
-                ))}
-              </>
-            )}
-            {ausencias.length === 0 && <div className="vacio">{t('sin_ausencias')}</div>}
-          </div>
-        )}
-
-        {/* TAB FICHAR */}
-        {tab === 'fichar' && (
-          <>
-            <div className="fichar-card">
-              <div className="reloj">{hora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
-              <div className="fecha-hoy">{hora.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-
-              {mensaje && <div className={`alerta ${mensaje.tipo}`}>{mensaje.texto}</div>}
-
-              <div className="botones-fichar">
-                <button className="btn-fichar entrada" onClick={() => fichar('entrada')} disabled={cargando || tocaSalida}>
-                  ↓ {t('fichar_entrada')}
-                </button>
-                <button className="btn-fichar salida" onClick={() => fichar('salida')} disabled={cargando || !tocaSalida}>
-                  ↑ {t('fichar_salida')}
-                </button>
+                )}
               </div>
+          )}
 
-              {ultimoFichaje && (
-                <div className="ultimo-fichaje">
-                  {t('ultimo_registro')}: <strong>{ultimoFichaje.tipo}</strong> a las {formatHora(ultimoFichaje.fecha_hora)}
-                </div>
-              )}
-            </div>
-
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-label">Horas este mes</div>
-                <div className="stat-valor">{totalHoras}h {totalMinutos}m</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">Días fichados</div>
-                <div className="stat-valor">{new Set(fichajes.map(f => f.fecha_hora?.slice(0,10))).size}</div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* TAB HISTORIAL */}
-        {tab === 'historial' && (
-          <div className="seccion">
-            <div className="seccion-titulo">Mis registros recientes</div>
-            {fichajes.length === 0 ? (
-              <div className="vacio">{t('no_hay_registros')}</div>
-            ) : (
-              <div className="tabla-wrap">
-                {fichajes.slice(0, 30).map((f) => (
-                  <div key={f.id} className="fila-fichaje">
-                    <span className="fila-fecha">{formatFecha(f.fecha_hora)}</span>
-                    <span className={`fila-tipo ${f.tipo}`}>{f.tipo}</span>
-                    <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
+        </div>
       </div>
-    </div>
   );
 }
