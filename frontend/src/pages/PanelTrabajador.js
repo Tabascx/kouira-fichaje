@@ -5,18 +5,18 @@ import './Panel.css';
 import { t } from '../i18n';
 
 export default function PanelTrabajador() {
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, actualizarUsuario } = useAuth();
 
-  const [hora, setHora]         = useState(new Date());
-  const [fichajes, setFichajes] = useState([]);
+  const [hora, setHora]           = useState(new Date());
+  const [fichajes, setFichajes]   = useState([]);
   const [ausencias, setAusencias] = useState([]);
-  const [cargando, setCargando] = useState(false);
-  const [mensaje, setMensaje]   = useState(null);
+  const [cargando, setCargando]   = useState(false);
+  const [mensaje, setMensaje]     = useState(null);
   const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
-  const [formPass, setFormPass] = useState({ actual: '', nueva: '', confirma: '' });
+  const [formPass, setFormPass]   = useState({ actual: '', nueva: '', confirma: '' });
   const [errorPass, setErrorPass] = useState('');
   const [cargandoPass, setCargandoPass] = useState(false);
-  const [tab, setTab] = useState('fichar');
+  const [tab, setTab]             = useState('fichar');
   const [descargando, setDescargando] = useState(false);
   const [mesSeleccionado, setMesSeleccionado] = useState(() => {
     const hoy = new Date();
@@ -31,17 +31,11 @@ export default function PanelTrabajador() {
   useEffect(() => {
     cargarFichajes();
     cargarAusencias();
-    const yaSeAvisoDeCambio = localStorage.getItem(`cambio-pass-${usuario.id}`);
-    if (!yaSeAvisoDeCambio) setMostrarCambioPass(true);
+    if (!usuario.password_cambiada) setMostrarCambioPass(true);
   }, [usuario.id, mesSeleccionado]);
 
-  const cargarFichajes = async () => {
-    try { const { data } = await api.get('/fichajes/mios'); setFichajes(data); } catch {}
-  };
-
-  const cargarAusencias = async () => {
-    try { const { data } = await api.get(`/ausencias/mias?mes=${mesSeleccionado}`); setAusencias(data); } catch {}
-  };
+  const cargarFichajes  = async () => { try { const { data } = await api.get('/fichajes/mios'); setFichajes(data); } catch {} };
+  const cargarAusencias = async () => { try { const { data } = await api.get(`/ausencias/mias?mes=${mesSeleccionado}`); setAusencias(data); } catch {} };
 
   const cambiarContrasena = async (e) => {
     e.preventDefault();
@@ -52,7 +46,7 @@ export default function PanelTrabajador() {
     setCargandoPass(true);
     try {
       await api.post(`/trabajadores/${usuario.id}/change-password`, { oldPassword: formPass.actual, newPassword: formPass.nueva });
-      localStorage.setItem(`cambio-pass-${usuario.id}`, 'true');
+      actualizarUsuario({ password_cambiada: true });
       setMostrarCambioPass(false);
       setFormPass({ actual: '', nueva: '', confirma: '' });
     } catch (err) {
@@ -80,27 +74,20 @@ export default function PanelTrabajador() {
   const descargarMisPDF = async (formato) => {
     setDescargando(true);
     try {
-      const { data: blob } = await api.get(
-          `/exportar/mio/${formato}?mes=${mesSeleccionado}`,
-          { responseType: 'blob' }
-      );
+      const { data: blob } = await api.get(`/exportar/mio/${formato}?mes=${mesSeleccionado}`, { responseType: 'blob' });
       const enlace = document.createElement('a');
       enlace.href  = URL.createObjectURL(blob);
       enlace.download = `mis_fichajes_${mesSeleccionado}.${formato === 'excel' ? 'xlsx' : 'pdf'}`;
       enlace.click();
       URL.revokeObjectURL(enlace.href);
-    } catch (err) {
-      alert(t('error_descarga'));
-    } finally {
-      setDescargando(false);
-    }
+    } catch { alert(t('error_descarga')); }
+    finally { setDescargando(false); }
   };
 
   const ultimoFichaje = fichajes[0];
   const tocaSalida    = ultimoFichaje?.tipo === 'entrada';
-
-  const formatFecha = (iso) => new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
-  const formatHora  = (iso) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const formatFecha   = (iso) => new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  const formatHora    = (iso) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
   const calcularHoras = (list) => {
     const sorted = [...list].sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora));
@@ -124,7 +111,6 @@ export default function PanelTrabajador() {
       <div className="panel-fondo">
         <div className="panel-wrap">
 
-          {/* MODAL CAMBIO CONTRASEÑA */}
           {mostrarCambioPass && (
               <div className="modal-fondo">
                 <div className="modal-card">
@@ -144,7 +130,6 @@ export default function PanelTrabajador() {
               </div>
           )}
 
-          {/* CABECERA */}
           <div className="cabecera">
             <div>
               <div className="cabecera-empresa">🏭 Kouira S.L</div>
@@ -153,14 +138,12 @@ export default function PanelTrabajador() {
             <button className="btn-logout" onClick={logout}>{t('salir')}</button>
           </div>
 
-          {/* TABS */}
           <div className="tabs">
-            <button className={`tab ${tab === 'fichar'   ? 'activo' : ''}`} onClick={() => setTab('fichar')}>⏱ Fichar</button>
-            <button className={`tab ${tab === 'resumen'  ? 'activo' : ''}`} onClick={() => setTab('resumen')}>📊 Resumen</button>
-            <button className={`tab ${tab === 'historial'? 'activo' : ''}`} onClick={() => setTab('historial')}>📋 Historial</button>
+            <button className={`tab ${tab === 'fichar'    ? 'activo' : ''}`} onClick={() => setTab('fichar')}>⏱ Fichar</button>
+            <button className={`tab ${tab === 'resumen'   ? 'activo' : ''}`} onClick={() => setTab('resumen')}>📊 Resumen</button>
+            <button className={`tab ${tab === 'historial' ? 'activo' : ''}`} onClick={() => setTab('historial')}>📋 Historial</button>
           </div>
 
-          {/* TAB FICHAR */}
           {tab === 'fichar' && (
               <>
                 <div className="fichar-card">
@@ -169,97 +152,4 @@ export default function PanelTrabajador() {
                   {mensaje && <div className={`alerta ${mensaje.tipo}`}>{mensaje.texto}</div>}
                   <div className="botones-fichar">
                     <button className="btn-fichar entrada" onClick={() => fichar('entrada')} disabled={cargando || tocaSalida}>↓ {t('fichar_entrada')}</button>
-                    <button className="btn-fichar salida"  onClick={() => fichar('salida')}  disabled={cargando || !tocaSalida}>↑ {t('fichar_salida')}</button>
-                  </div>
-                  {ultimoFichaje && (
-                      <div className="ultimo-fichaje">
-                        {t('ultimo_registro')}: <strong>{ultimoFichaje.tipo}</strong> a las {formatHora(ultimoFichaje.fecha_hora)}
-                      </div>
-                  )}
-                </div>
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <div className="stat-label">{t('horas_trabajadas')}</div>
-                    <div className="stat-valor">{totalHoras}h {totalMinutos}m</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-label">{t('dias')}</div>
-                    <div className="stat-valor">{new Set(fichajes.map(f => f.fecha_hora?.slice(0,10))).size}</div>
-                  </div>
-                </div>
-              </>
-          )}
-
-          {/* TAB RESUMEN */}
-          {tab === 'resumen' && (
-              <div className="seccion">
-                <div className="seccion-header">
-                  <div className="seccion-titulo" style={{ margin: 0 }}>{t('horas_mes_actual')}</div>
-                  <input type="month" value={mesSeleccionado} onChange={(e) => setMesSeleccionado(e.target.value)} className="input-mes" />
-                </div>
-
-                <div className="stats-grid" style={{ marginBottom: 14 }}>
-                  <div className="stat-card">
-                    <div className="stat-label">{t('horas_trabajadas')}</div>
-                    <div className="stat-valor">{totalHoras}h {totalMinutos}m</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-label">{t('ausencias_mes')}</div>
-                    <div className="stat-valor">{ausencias.length}</div>
-                  </div>
-                </div>
-
-                {/* DESCARGAR */}
-                <div className="btns-exportar" style={{ marginBottom: 14 }}>
-                  <button className="btn-exportar excel" onClick={() => descargarMisPDF('excel')} disabled={descargando}>
-                    ⬇ Excel
-                  </button>
-                  <button className="btn-exportar pdf" onClick={() => descargarMisPDF('pdf')} disabled={descargando}>
-                    ⬇ PDF
-                  </button>
-                </div>
-
-                {ausencias.length > 0 && (
-                    <>
-                      <div className="seccion-titulo">{t('ausencias_mes')}</div>
-                      {ausencias.map((a) => (
-                          <div key={a.id} className="fila-ausencia">
-                            <div className="ausencia-top">
-                              <strong>{new Date(a.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</strong>
-                              <span className={`fila-tipo ${a.justificada ? 'entrada' : 'salida'}`}>
-                        {a.justificada ? '✓ ' + t('justificada') : '✗ ' + t('injustificada')}
-                      </span>
-                            </div>
-                            <div className="ausencia-motivo">{a.motivo || a.motivo_tipo || '—'}</div>
-                          </div>
-                      ))}
-                    </>
-                )}
-                {ausencias.length === 0 && <div className="vacio">{t('sin_ausencias')}</div>}
-              </div>
-          )}
-
-          {/* TAB HISTORIAL */}
-          {tab === 'historial' && (
-              <div className="seccion">
-                <div className="seccion-titulo">{t('no_hay_registros').replace('todavía', '')} — {t('horas_trabajadas')}: {totalHoras}h {totalMinutos}m</div>
-                {fichajes.length === 0 ? (
-                    <div className="vacio">{t('no_hay_registros')}</div>
-                ) : (
-                    <div className="tabla-wrap">
-                      {fichajes.slice(0, 30).map((f) => (
-                          <div key={f.id} className="fila-fichaje">
-                            <span className="fila-fecha">{formatFecha(f.fecha_hora)}</span>
-                            <span className={`fila-tipo ${f.tipo}`}>{t(f.tipo)}</span>
-                            <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
-                          </div>
-                      ))}
-                    </div>
-                )}
-              </div>
-          )}
-
-        </div>
-      </div>
-  );
-}
+                    <button className="btn-fichar

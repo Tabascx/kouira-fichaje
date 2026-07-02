@@ -5,8 +5,6 @@ const pool    = require('../db/connection');
 
 const router = express.Router();
 
-// POST /api/auth/login
-// Recibe { username, password } y devuelve un token JWT si los datos son correctos
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
@@ -15,10 +13,9 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    // Buscar el usuario en la base de datos
     const resultado = await pool.query(
-      'SELECT * FROM usuarios WHERE username = $1 AND activo = true',
-      [username]
+        'SELECT * FROM usuarios WHERE username = $1 AND activo = true',
+        [username]
     );
 
     const usuario = resultado.rows[0];
@@ -26,37 +23,31 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
-    // Comparar la contraseña con el hash guardado
     const passwordCorrecta = await bcrypt.compare(password, usuario.password);
     if (!passwordCorrecta) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
-    // Generar el token JWT
-    // Expira a las 16:00 (fin de jornada) del mismo día
     const ahora = new Date();
     const finJornada = new Date(ahora);
     finJornada.setHours(16, 0, 0, 0);
-    
-    // Si ya pasaron las 16h, expira mañana a las 16h
-    if (ahora >= finJornada) {
-      finJornada.setDate(finJornada.getDate() + 1);
-    }
+    if (ahora >= finJornada) finJornada.setDate(finJornada.getDate() + 1);
+    const tiempoExp = Math.floor((finJornada - ahora) / 1000);
 
-    const tiempoExp = Math.floor((finJornada - ahora) / 1000); // en segundos
     const token = jwt.sign(
-      { id: usuario.id, username: usuario.username, rol: usuario.rol, nombre: usuario.nombre },
-      process.env.JWT_SECRET,
-      { expiresIn: tiempoExp }
+        { id: usuario.id, username: usuario.username, rol: usuario.rol, nombre: usuario.nombre, password_cambiada: usuario.password_cambiada },
+        process.env.JWT_SECRET,
+        { expiresIn: tiempoExp }
     );
 
     res.json({
       token,
       usuario: {
-        id:       usuario.id,
-        nombre:   usuario.nombre,
-        username: usuario.username,
-        rol:      usuario.rol,
+        id:                usuario.id,
+        nombre:            usuario.nombre,
+        username:          usuario.username,
+        rol:               usuario.rol,
+        password_cambiada: usuario.password_cambiada,
       }
     });
 

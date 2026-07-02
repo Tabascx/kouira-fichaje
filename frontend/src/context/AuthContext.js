@@ -2,10 +2,8 @@ import { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext(null);
 
-// Envuelve toda la app — guarda quién está logueado
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(() => {
-    // Al arrancar, recupera el usuario del localStorage si ya había sesión
     const guardado = localStorage.getItem('usuario');
     return guardado ? JSON.parse(guardado) : null;
   });
@@ -22,14 +20,19 @@ export function AuthProvider({ children }) {
     setUsuario(null);
   };
 
+  const actualizarUsuario = (datos) => {
+    const nuevo = { ...usuario, ...datos };
+    localStorage.setItem('usuario', JSON.stringify(nuevo));
+    setUsuario(nuevo);
+  };
+
   return (
-    <AuthContext.Provider value={{ usuario, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider value={{ usuario, login, logout, actualizarUsuario }}>
+        {children}
+      </AuthContext.Provider>
   );
 }
 
-// Hook personalizado — en cualquier componente haz: const { usuario } = useAuth()
 export function useAuth() {
   return useContext(AuthContext);
 }
