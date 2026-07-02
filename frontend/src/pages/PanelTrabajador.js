@@ -152,4 +152,88 @@ export default function PanelTrabajador() {
                   {mensaje && <div className={`alerta ${mensaje.tipo}`}>{mensaje.texto}</div>}
                   <div className="botones-fichar">
                     <button className="btn-fichar entrada" onClick={() => fichar('entrada')} disabled={cargando || tocaSalida}>↓ {t('fichar_entrada')}</button>
-                    <button className="btn-fichar
+                    <button className="btn-fichar salida"  onClick={() => fichar('salida')}  disabled={cargando || !tocaSalida}>↑ {t('fichar_salida')}</button>
+                  </div>
+                  {ultimoFichaje && (
+                      <div className="ultimo-fichaje">
+                        {t('ultimo_registro')}: <strong>{ultimoFichaje.tipo}</strong> a las {formatHora(ultimoFichaje.fecha_hora)}
+                      </div>
+                  )}
+                </div>
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <div className="stat-label">{t('horas_trabajadas')}</div>
+                    <div className="stat-valor">{totalHoras}h {totalMinutos}m</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">{t('dias')}</div>
+                    <div className="stat-valor">{new Set(fichajes.map(f => f.fecha_hora?.slice(0,10))).size}</div>
+                  </div>
+                </div>
+              </>
+          )}
+
+          {tab === 'resumen' && (
+              <div className="seccion">
+                <div className="seccion-header">
+                  <div className="seccion-titulo" style={{ margin: 0 }}>{t('horas_mes_actual')}</div>
+                  <input type="month" value={mesSeleccionado} onChange={(e) => setMesSeleccionado(e.target.value)} className="input-mes" />
+                </div>
+                <div className="stats-grid" style={{ marginBottom: 14 }}>
+                  <div className="stat-card">
+                    <div className="stat-label">{t('horas_trabajadas')}</div>
+                    <div className="stat-valor">{totalHoras}h {totalMinutos}m</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">{t('ausencias_mes')}</div>
+                    <div className="stat-valor">{ausencias.length}</div>
+                  </div>
+                </div>
+                <div className="btns-exportar" style={{ marginBottom: 14 }}>
+                  <button className="btn-exportar excel" onClick={() => descargarMisPDF('excel')} disabled={descargando}>⬇ Excel</button>
+                  <button className="btn-exportar pdf"   onClick={() => descargarMisPDF('pdf')}   disabled={descargando}>⬇ PDF</button>
+                </div>
+                {ausencias.length > 0 ? (
+                    <>
+                      <div className="seccion-titulo">{t('ausencias_mes')}</div>
+                      {ausencias.map((a) => (
+                          <div key={a.id} className="fila-ausencia">
+                            <div className="ausencia-top">
+                              <strong>{new Date(a.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</strong>
+                              <span className={`fila-tipo ${a.justificada ? 'entrada' : 'salida'}`}>
+                        {a.justificada ? '✓ ' + t('justificada') : '✗ ' + t('injustificada')}
+                      </span>
+                            </div>
+                            <div className="ausencia-motivo">{a.motivo || a.motivo_tipo || '—'}</div>
+                          </div>
+                      ))}
+                    </>
+                ) : (
+                    <div className="vacio">{t('sin_ausencias')}</div>
+                )}
+              </div>
+          )}
+
+          {tab === 'historial' && (
+              <div className="seccion">
+                <div className="seccion-titulo">{t('horas_trabajadas')}: {totalHoras}h {totalMinutos}m</div>
+                {fichajes.length === 0 ? (
+                    <div className="vacio">{t('no_hay_registros')}</div>
+                ) : (
+                    <div className="tabla-wrap">
+                      {fichajes.slice(0, 30).map((f) => (
+                          <div key={f.id} className="fila-fichaje">
+                            <span className="fila-fecha">{formatFecha(f.fecha_hora)}</span>
+                            <span className={`fila-tipo ${f.tipo}`}>{t(f.tipo)}</span>
+                            <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
+                          </div>
+                      ))}
+                    </div>
+                )}
+              </div>
+          )}
+
+        </div>
+      </div>
+  );
+}

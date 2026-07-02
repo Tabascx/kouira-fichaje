@@ -7,7 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 
 export default function PanelAdmin() {
   const { logout } = useAuth();
-  const [tab, setTab]                   = useState('hoy');
+  const [tab, setTab]                   = useState('dashboard'); // He cambiado el valor inicial a 'dashboard' por comodidad
   const [fichajesHoy, setFichajesHoy]   = useState([]);
   const [resumen, setResumen]           = useState([]);
   const [trabajadores, setTrabajadores] = useState([]);
@@ -43,6 +43,7 @@ export default function PanelAdmin() {
 
   useEffect(() => { cargarTrabajadores(); }, [cargarTrabajadores]);
   useEffect(() => {
+    if (tab === 'dashboard') cargarHoy();
     if (tab === 'hoy')       cargarHoy();
     if (tab === 'resumen')   cargarResumen();
     if (tab === 'ausencias') cargarAusencias();
@@ -166,11 +167,52 @@ export default function PanelAdmin() {
           </div>
 
           <div className="tabs">
+            {/* NUEVO BOTÓN AGREGADO */}
+            <button className={`tab ${tab === 'dashboard' ? 'activo' : ''}`} onClick={() => setTab('dashboard')}>🏠</button>
             <button className={`tab ${tab === 'hoy'          ? 'activo' : ''}`} onClick={() => setTab('hoy')}>{t('hoy')}</button>
             <button className={`tab ${tab === 'resumen'      ? 'activo' : ''}`} onClick={() => setTab('resumen')}>{t('resumen')}</button>
             <button className={`tab ${tab === 'ausencias'    ? 'activo' : ''}`} onClick={() => setTab('ausencias')}>{t('ausencias')}</button>
             <button className={`tab ${tab === 'trabajadores' ? 'activo' : ''}`} onClick={() => setTab('trabajadores')}>{t('equipo')}</button>
           </div>
+
+          {/* VISTA DASHBOARD AGREGADA */}
+          {tab === 'dashboard' && (
+              <>
+                <div className="stats-grid" style={{ marginBottom: 12 }}>
+                  <div className="stat-card">
+                    <div className="stat-label">{t('fichados_hoy')}</div>
+                    <div className="stat-valor" style={{ color: '#1D9E75' }}>{presentesHoy}</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">{t('faltan_fichar')}</div>
+                    <div className="stat-valor" style={{ color: '#E24B4A' }}>{trabajadoresSolo.length - presentesHoy}</div>
+                  </div>
+                </div>
+                <div className="seccion">
+                  <div className="seccion-titulo">
+                    {new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </div>
+                  {trabajadoresSolo.map(trab => {
+                    const hoyFicho = fichajesHoy.some(f => Number(f.usuario_id) === trab.id && f.tipo === 'entrada');
+                    const ultimoF  = fichajesHoy.filter(f => Number(f.usuario_id) === trab.id).sort((a,b) => new Date(b.fecha_hora) - new Date(a.fecha_hora))[0];
+                    return (
+                        <div key={trab.id} className="fila-dashboard">
+                          <div className="dashboard-dot" style={{ background: hoyFicho ? '#1D9E75' : '#E24B4A' }} />
+                          <div className="trabajador-info">
+                            <div className="trabajador-nombre">{trab.nombre}</div>
+                            <div className="trabajador-user">
+                              {ultimoF ? `${t(ultimoF.tipo)} · ${formatHora(ultimoF.fecha_hora)}` : t('sin_fichajes_hoy')}
+                            </div>
+                          </div>
+                          <span className={`fila-tipo ${hoyFicho ? 'entrada' : 'salida'}`}>
+                        {hoyFicho ? '✓ ' + t('activo') : '✗ ' + t('faltan_fichar')}
+                      </span>
+                        </div>
+                    );
+                  })}
+                </div>
+              </>
+          )}
 
           {/* HOY */}
           {tab === 'hoy' && (
