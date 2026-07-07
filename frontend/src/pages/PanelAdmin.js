@@ -7,7 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 
 export default function PanelAdmin() {
   const { logout } = useAuth();
-  const [tab, setTab]                   = useState('dashboard'); // He cambiado el valor inicial a 'dashboard' por comodidad
+  const [tab, setTab]                   = useState('dashboard');
   const [fichajesHoy, setFichajesHoy]   = useState([]);
   const [resumen, setResumen]           = useState([]);
   const [trabajadores, setTrabajadores] = useState([]);
@@ -22,6 +22,12 @@ export default function PanelAdmin() {
   const [modalEditar, setModalEditar]       = useState(null);
   const [formEditar, setFormEditar]         = useState({ nombre: '', username: '' });
   const [lang, setLangState]               = useState(getLang());
+  const [modalHistorial, setModalHistorial] = useState(null);
+  const [historialFichajes, setHistorialFichajes] = useState([]);
+  const [mesHistorial, setMesHistorial]     = useState(() => {
+    const hoy = new Date();
+    return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const motivoOptions = [
     { value: '', label: t('motivo') },
@@ -142,6 +148,22 @@ export default function PanelAdmin() {
     } catch (err) { alert(`${t('error_descarga')}: ${err.message}`); }
   };
 
+  const verHistorial = async (trab) => {
+    setModalHistorial(trab);
+    setHistorialFichajes([]);
+    try {
+      const { data } = await api.get(`/fichajes/historial/${trab.id}?mes=${mesHistorial}`);
+      setHistorialFichajes(data);
+    } catch { setHistorialFichajes([]); }
+  };
+
+  const cargarHistorial = async (id, mes) => {
+    try {
+      const { data } = await api.get(`/fichajes/historial/${id}?mes=${mes}`);
+      setHistorialFichajes(data);
+    } catch { setHistorialFichajes([]); }
+  };
+
   const locale = getLang() === 'ar' ? 'ar' : 'es-ES';
   const formatHora  = (iso) => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   const formatFecha = (iso) => new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -167,15 +189,14 @@ export default function PanelAdmin() {
           </div>
 
           <div className="tabs">
-            {/* NUEVO BOTÓN AGREGADO */}
-            <button className={`tab ${tab === 'dashboard' ? 'activo' : ''}`} onClick={() => setTab('dashboard')}>🏠</button>
+            <button className={`tab ${tab === 'dashboard'    ? 'activo' : ''}`} onClick={() => setTab('dashboard')}>🏠</button>
             <button className={`tab ${tab === 'hoy'          ? 'activo' : ''}`} onClick={() => setTab('hoy')}>{t('hoy')}</button>
             <button className={`tab ${tab === 'resumen'      ? 'activo' : ''}`} onClick={() => setTab('resumen')}>{t('resumen')}</button>
             <button className={`tab ${tab === 'ausencias'    ? 'activo' : ''}`} onClick={() => setTab('ausencias')}>{t('ausencias')}</button>
             <button className={`tab ${tab === 'trabajadores' ? 'activo' : ''}`} onClick={() => setTab('trabajadores')}>{t('equipo')}</button>
           </div>
 
-          {/* VISTA DASHBOARD AGREGADA */}
+          {/* DASHBOARD */}
           {tab === 'dashboard' && (
               <>
                 <div className="stats-grid" style={{ marginBottom: 12 }}>
@@ -205,8 +226,9 @@ export default function PanelAdmin() {
                             </div>
                           </div>
                           <span className={`fila-tipo ${hoyFicho ? 'entrada' : 'salida'}`}>
-                        {hoyFicho ? '✓ ' + t('activo') : '✗ ' + t('faltan_fichar')}
-                      </span>
+                      {hoyFicho ? '✓ ' + t('activo') : '✗ ' + t('faltan_fichar')}
+                    </span>
+                          <button className="btn-mini" onClick={() => verHistorial(trab)}>📋</button>
                         </div>
                     );
                   })}
@@ -227,7 +249,6 @@ export default function PanelAdmin() {
                     <div className="stat-valor" style={{ color: '#E24B4A' }}>{trabajadoresSolo.length - presentesHoy}</div>
                   </div>
                 </div>
-
                 <div className="seccion">
                   <div className="seccion-titulo">
                     {t('fichajes_hoy')} — {new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -245,7 +266,6 @@ export default function PanelAdmin() {
                       </div>
                   )}
                 </div>
-
                 <div className="seccion fichaje-manual-seccion">
                   <div className="fichaje-manual-header">
                     <div className="fichaje-manual-icono">✏️</div>
@@ -273,6 +293,7 @@ export default function PanelAdmin() {
               </>
           )}
 
+          {/* RESUMEN */}
           {tab === 'resumen' && (
               <div className="seccion">
                 <div className="seccion-header">
@@ -294,17 +315,13 @@ export default function PanelAdmin() {
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                             <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
                             <YAxis tick={{ fontSize: 11 }} />
-                            <Tooltip
-                                formatter={(value, name) => [value, name === 'dias' ? t('dias') : t('horas_trabajadas')]}
-                                contentStyle={{ borderRadius: 8, fontSize: 12 }}
-                            />
+                            <Tooltip formatter={(value, name) => [value, name === 'dias' ? t('dias') : t('horas_trabajadas')]} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
                             <Legend formatter={(value) => value === 'dias' ? t('dias') : t('horas_trabajadas')} />
                             <Bar dataKey="dias"  fill="#185FA5" radius={[4,4,0,0]} name="dias" />
                             <Bar dataKey="horas" fill="#1D9E75" radius={[4,4,0,0]} name="horas" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
-
                       <div className="tabla-wrap">
                         {resumen.filter(r => r.nombre !== 'Administrador').map((r) => (
                             <div key={r.id} className="fila-resumen">
@@ -382,15 +399,14 @@ export default function PanelAdmin() {
                     {trab.activo ? t('activo') : t('inactivo')}
                   </span>
                         <div className="trabajador-acciones">
-                          <button className="btn-mini" onClick={() => abrirEditar(trab)} title={t('cambiar_pass')}>✏️</button>
-                          <button className="btn-mini" onClick={() => resetPassword(trab)} title={t('restablecer_pass')}>🔑</button>
+                          <button className="btn-mini" onClick={() => abrirEditar(trab)}>✏️</button>
+                          <button className="btn-mini" onClick={() => resetPassword(trab)}>🔑</button>
                           <button className="btn-mini" onClick={() => toggleActivo(trab)}>{trab.activo ? '⏸' : '▶️'}</button>
                           <button className="btn-mini rojo" onClick={() => eliminarTrabajador(trab)}>🗑️</button>
                         </div>
                       </div>
                   ))}
                 </div>
-
                 {resetInfo && (
                     <div className="reset-info">
                       <div className="reset-info-titulo">✅ {t('contrasena_temporal_lista')} — {resetInfo.nombre}</div>
@@ -402,7 +418,6 @@ export default function PanelAdmin() {
                       <button className="btn-mini" style={{ marginTop: 8 }} onClick={() => setResetInfo(null)}>✕ {t('cancelar')}</button>
                     </div>
                 )}
-
                 <div className="seccion-titulo" style={{ marginTop: 20 }}>{t('crear_trabajador')}</div>
                 <form onSubmit={crearTrabajador} className="form-nuevo">
                   <input placeholder={t('nombre_completo')} value={nuevoForm.nombre} onChange={(e) => setNuevoForm({ ...nuevoForm, nombre: e.target.value })} required />
@@ -411,6 +426,36 @@ export default function PanelAdmin() {
                   {msgNuevo && <div className={`alerta ${msgNuevo.tipo}`}>{msgNuevo.texto}</div>}
                   <button type="submit" className="btn-login">{t('crear_trabajador')}</button>
                 </form>
+              </div>
+          )}
+
+          {/* MODAL HISTORIAL */}
+          {modalHistorial && (
+              <div className="modal-fondo" onClick={() => setModalHistorial(null)}>
+                <div className="modal-card" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-titulo">📋 {modalHistorial.nombre}</div>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input type="month" value={mesHistorial} onChange={async (e) => { setMesHistorial(e.target.value); await cargarHistorial(modalHistorial.id, e.target.value); }} className="input-mes" style={{ flex: 1 }} />
+                    <div className="btns-exportar">
+                      <button className="btn-exportar excel" onClick={() => descargar('excel', modalHistorial.id, modalHistorial.nombre)}>⬇ Excel</button>
+                      <button className="btn-exportar pdf"   onClick={() => descargar('pdf',   modalHistorial.id, modalHistorial.nombre)}>⬇ PDF</button>
+                    </div>
+                  </div>
+                  {historialFichajes.length === 0 ? (
+                      <div className="vacio">{t('no_hay_registros')}</div>
+                  ) : (
+                      <div className="tabla-wrap" style={{ maxHeight: 340, overflowY: 'auto' }}>
+                        {historialFichajes.map((f) => (
+                            <div key={f.id} className="fila-fichaje">
+                              <span className="fila-fecha">{formatFecha(f.fecha_hora)}</span>
+                              <span className={`fila-tipo ${f.tipo}`}>{t(f.tipo)}</span>
+                              <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
+                            </div>
+                        ))}
+                      </div>
+                  )}
+                  <button className="btn-logout" style={{ width: '100%', marginTop: 12 }} onClick={() => setModalHistorial(null)}>{t('cancelar')}</button>
+                </div>
               </div>
           )}
 
