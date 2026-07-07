@@ -151,5 +151,30 @@ router.get('/auditoria/historial', verificarToken, soloAdmin, async (req, res) =
     res.status(500).json({ error: 'Error al obtener auditoría' });
   }
 });
+// DELETE /api/fichajes/mio/:id — trabajador elimina su propio fichaje del mismo día
+router.delete('/mio/:id', verificarToken, async (req, res) => {
+  const { id } = req.params;
+  const usuario_id = req.usuario.id;
 
+  try {
+    const fichajeRes = await pool.query('SELECT * FROM fichajes WHERE id = $1', [id]);
+    if (fichajeRes.rowCount === 0) return res.status(404).json({ error: 'Fichaje no encontrado' });
+
+    const fichaje = fichajeRes.rows[0];
+
+    // Solo puede eliminar sus propios fichajes
+    if (fichaje.usuario_id !== usuario_id) return res.status(403).json({ error: 'No autorizado' });
+
+    // Solo puede eliminar fichajes del día actual
+    const hoy = new Date().toISOString().slice(0, 10);
+    const diaFichaje = new Date(fichaje.fecha_hora).toISOString().slice(0, 10);
+    if (diaFichaje !== hoy) return res.status(403).json({ error: 'Solo puedes eliminar fichajes del día de hoy' });
+
+    await pool.query('DELETE FROM fichajes WHERE id = $1', [id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al eliminar fichaje' });
+  }
+});
 module.exports = router;

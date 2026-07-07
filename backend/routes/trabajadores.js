@@ -111,5 +111,15 @@ router.post('/:id/reset-password', verificarToken, soloAdmin, async (req, res) =
     res.status(500).json({ error: 'Error al resetear contraseña' });
   }
 });
-
+// POST /api/trabajadores/:id/aceptar-privacidad
+router.post('/:id/aceptar-privacidad', verificarToken, async (req, res) => {
+  const { id } = req.params;
+  if (String(req.usuario.id) !== String(id)) return res.status(403).json({ error: 'No autorizado' });
+  try {
+    await pool.query('UPDATE usuarios SET privacidad_aceptada = true WHERE id = $1', [id]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al guardar consentimiento' });
+  }
+});
 module.exports = router;

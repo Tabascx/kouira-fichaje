@@ -13,6 +13,8 @@ export default function PanelTrabajador() {
   const [cargando, setCargando]   = useState(false);
   const [mensaje, setMensaje]     = useState(null);
   const [mostrarCambioPass, setMostrarCambioPass] = useState(false);
+  const [mostrarPrivacidad, setMostrarPrivacidad] = useState(false);
+  const [privacidadChecked, setPrivacidadChecked] = useState(false);
   const [formPass, setFormPass]   = useState({ actual: '', nueva: '', confirma: '' });
   const [errorPass, setErrorPass] = useState('');
   const [cargandoPass, setCargandoPass] = useState(false);
@@ -31,11 +33,22 @@ export default function PanelTrabajador() {
   useEffect(() => {
     cargarFichajes();
     cargarAusencias();
-    if (!usuario.password_cambiada) setMostrarCambioPass(true);
+    if (!usuario.privacidad_aceptada) setMostrarPrivacidad(true);
+    else if (!usuario.password_cambiada) setMostrarCambioPass(true);
   }, [usuario.id, mesSeleccionado]);
 
   const cargarFichajes  = async () => { try { const { data } = await api.get('/fichajes/mios'); setFichajes(data); } catch {} };
   const cargarAusencias = async () => { try { const { data } = await api.get(`/ausencias/mias?mes=${mesSeleccionado}`); setAusencias(data); } catch {} };
+
+  const aceptarPrivacidad = async () => {
+    if (!privacidadChecked) return;
+    try {
+      await api.post(`/trabajadores/${usuario.id}/aceptar-privacidad`);
+      actualizarUsuario({ privacidad_aceptada: true });
+      setMostrarPrivacidad(false);
+      if (!usuario.password_cambiada) setMostrarCambioPass(true);
+    } catch { alert('Error al guardar consentimiento'); }
+  };
 
   const cambiarContrasena = async (e) => {
     e.preventDefault();
@@ -71,6 +84,16 @@ export default function PanelTrabajador() {
     }
   };
 
+  const eliminarMiFichaje = async (id) => {
+    if (!window.confirm('¿Eliminar este fichaje de hoy?')) return;
+    try {
+      await api.delete(`/fichajes/mio/${id}`);
+      cargarFichajes();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Error al eliminar');
+    }
+  };
+
   const descargarMisPDF = async (formato) => {
     setDescargando(true);
     try {
@@ -86,6 +109,8 @@ export default function PanelTrabajador() {
 
   const ultimoFichaje = fichajes[0];
   const tocaSalida    = ultimoFichaje?.tipo === 'entrada';
+  const hoy           = new Date().toISOString().slice(0, 10);
+  const fichajesHoy   = fichajes.filter(f => f.fecha_hora?.slice(0, 10) === hoy);
   const formatFecha   = (iso) => new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
   const formatHora    = (iso) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
@@ -111,7 +136,28 @@ export default function PanelTrabajador() {
       <div className="panel-fondo">
         <div className="panel-wrap">
 
-          {mostrarCambioPass && (
+          {/* MODAL PRIVACIDAD */}
+          {mostrarPrivacidad && (
+              <div className="modal-fondo">
+                <div className="modal-card">
+                  <div className="modal-icono">🔒</div>
+                  <div className="modal-titulo">Política de privacidad</div>
+                  <p className="modal-desc" style={{ textAlign: 'left', fontSize: 12, color: '#444', lineHeight: 1.6 }}>
+                    Tus datos de fichaje (hora de entrada y salida) serán tratados por <strong>Mahjoub Kouira S.L</strong> (CIF: B72564354) con la finalidad de control de jornada laboral, conforme al Art. 34 del Estatuto de los Trabajadores y el RD-Ley 8/2019. Los datos se conservarán durante <strong>4 años</strong>. Puedes ejercer tus derechos de acceso, rectificación y supresión contactando con la empresa.
+                  </p>
+                  <label className="checkbox-label" style={{ marginBottom: 16 }}>
+                    <input type="checkbox" checked={privacidadChecked} onChange={(e) => setPrivacidadChecked(e.target.checked)} />
+                    He leído y acepto la política de privacidad
+                  </label>
+                  <button className="btn-login" disabled={!privacidadChecked} onClick={aceptarPrivacidad}>
+                    Continuar
+                  </button>
+                </div>
+              </div>
+          )}
+
+          {/* MODAL CAMBIO CONTRASEÑA */}
+          {mostrarCambioPass && !mostrarPrivacidad && (
               <div className="modal-fondo">
                 <div className="modal-card">
                   <div className="modal-icono">🔐</div>
@@ -160,6 +206,7 @@ export default function PanelTrabajador() {
                       </div>
                   )}
                 </div>
+
                 <div className="stats-grid">
                   <div className="stat-card">
                     <div className="stat-label">{t('horas_trabajadas')}</div>
@@ -170,6 +217,21 @@ export default function PanelTrabajador() {
                     <div className="stat-valor">{new Set(fichajes.map(f => f.fecha_hora?.slice(0,10))).size}</div>
                   </div>
                 </div>
+
+                {fichajesHoy.length > 0 && (
+                    <div className="seccion">
+                      <div className="seccion-titulo">Mis fichajes de hoy</div>
+                      <div className="tabla-wrap">
+                        {fichajesHoy.map((f) => (
+                            <div key={f.id} className="fila-fichaje">
+                              <span className={`fila-tipo ${f.tipo}`}>{t(f.tipo)}</span>
+                              <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
+                              <button className="btn-mini rojo" onClick={() => eliminarMiFichaje(f.id)}>✕</button>
+                            </div>
+                        ))}
+                      </div>
+                    </div>
+                )}
               </>
           )}
 
