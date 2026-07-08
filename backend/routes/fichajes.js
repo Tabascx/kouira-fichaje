@@ -96,19 +96,33 @@ router.get('/historial/:usuario_id', verificarToken, soloAdmin, async (req, res)
   }
 });
 
-router.post('/manual', verificarToken, soloAdmin, async (req, res) => {
-  const { usuario_id, tipo, fecha_hora } = req.body;
-  if (!usuario_id || !tipo || !fecha_hora) return res.status(400).json({ error: 'usuario_id, tipo y fecha_hora son obligatorios' });
-  if (!['entrada', 'salida'].includes(tipo)) return res.status(400).json({ error: 'tipo debe ser "entrada" o "salida"' });
+router.post('/', verificarToken, async (req, res) => {
+  const { tipo } = req.body;
+  const usuario_id = req.usuario.id;
+
+  if (!['entrada', 'salida'].includes(tipo)) {
+    return res.status(400).json({ error: 'tipo debe ser "entrada" o "salida"' });
+  }
+
   try {
+    // Evitar fichaje duplicado — comprobar el último fichaje del usuario
+    const ultimoRes = await pool.query(
+        'SELECT tipo FROM fichajes WHERE usuario_id = $1 ORDER BY fecha_hora DESC LIMIT 1',
+        [usuario_id]
+    );
+    const ultimo = ultimoRes.rows[0];
+    if (ultimo && ultimo.tipo === tipo) {
+      return res.status(409).json({ error: `Ya tienes una ${tipo} registrada. Registra la ${tipo === 'entrada' ? 'salida' : 'entrada'} primero.` });
+    }
+
     const resultado = await pool.query(
-        'INSERT INTO fichajes (usuario_id, tipo, fecha_hora, ip_origen) VALUES ($1, $2, $3, $4) RETURNING *',
-        [usuario_id, tipo, fecha_hora, 'manual-admin']
+        'INSERT INTO fichajes (usuario_id, tipo, ip_origen) VALUES ($1, $2, $3) RETURNING *',
+        [usuario_id, tipo, req.ip]
     );
     res.status(201).json(resultado.rows[0]);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error al crear fichaje manual' });
+    res.status(500).json({ error: 'Error al registrar fichaje' });
   }
 });
 
