@@ -434,13 +434,13 @@ export default function PanelAdmin() {
               <div className="modal-fondo" onClick={() => setModalHistorial(null)}>
                 <div className="modal-card" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
                   <div className="modal-titulo">📋 {modalHistorial.nombre}</div>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <input type="month" value={mesHistorial} onChange={async (e) => { setMesHistorial(e.target.value); await cargarHistorial(modalHistorial.id, e.target.value); }} className="input-mes" style={{ flex: 1 }} />
-                    <div className="btns-exportar">
-                      <button className="btn-exportar excel" onClick={() => descargar('excel', modalHistorial.id, modalHistorial.nombre)}>⬇ Excel</button>
-                      <button className="btn-exportar pdf"   onClick={() => descargar('pdf',   modalHistorial.id, modalHistorial.nombre)}>⬇ PDF</button>
-                    </div>
-                  </div>
+                  <input
+                      type="month"
+                      value={mesHistorial}
+                      onChange={async (e) => { setMesHistorial(e.target.value); await cargarHistorial(modalHistorial.id, e.target.value); }}
+                      className="input-mes"
+                      style={{ width: '100%', marginBottom: 12 }}
+                  />
                   {historialFichajes.length === 0 ? (
                       <div className="vacio">{t('no_hay_registros')}</div>
                   ) : (
