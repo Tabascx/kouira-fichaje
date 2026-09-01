@@ -411,19 +411,6 @@
   border: 1.5px dashed #c5d5f0;
   background: #f8faff;
 }
-.fichaje-manual-header {
-@media (max-width: 600px) {
-  .modal-card { max-width: 96%; padding: 18px; }
-  .modal-titulo { font-size: 16px; }
-}
-
-@media (max-width: 400px) {
-  .panel-fondo { padding: 8px; }
-  .reloj { font-size: 36px; }
-  .tab { font-size: 11px; padding: 8px 2px; }
-  .btns-exportar { justify-content: flex-end; }
-  .trabajador-acciones { gap: 4px; }
-}
 
 /* FICHAJE MANUAL SECCIÓN */
 .fichaje-manual-seccion {
