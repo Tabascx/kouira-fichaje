@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 
-// JustifyModal: shows existing justifications (if provided) and lets user add a new one.
-// Styled minimally but uses app color tokens where sensible.
-
+// JustifyModal: uses shared modal styles from Panel.css and specific classes for content
 export default function JustifyModal({ open, onClose, onSubmit, defaultReason = '', reasonTypes = ['permiso', 'vacaciones', 'baja', 'otro'], existing = [] }) {
   const [reasonType, setReasonType] = useState(reasonTypes[0] || 'otro');
   const [reasonText, setReasonText] = useState(defaultReason);
@@ -12,23 +10,23 @@ export default function JustifyModal({ open, onClose, onSubmit, defaultReason = 
   const submit = (e) => {
     e.preventDefault();
     onSubmit && onSubmit({ reasonType, reasonText });
-    // do not auto-close here; parent will close when successful
+    // parent will close on success
   };
 
   return (
-    <div style={styles.backdrop} role="dialog" aria-modal="true">
-      <div style={styles.modal}>
-        <h3 style={{ marginTop: 0 }}>Justificar fichaje</h3>
+    <div className="modal-fondo" role="dialog" aria-modal="true">
+      <div className="modal-card" style={{ maxWidth: 560 }}>
+        <div className="modal-titulo">Justificar fichaje</div>
 
         {existing && existing.length > 0 && (
-          <div style={styles.existing}>
-            <strong>Justificaciones anteriores</strong>
-            <ul style={{ marginTop: 8, paddingLeft: 16 }}>
+          <div className="justificaciones-list">
+            <strong style={{ display: 'block', marginBottom: 8 }}>Justificaciones anteriores</strong>
+            <ul>
               {existing.map((j) => (
-                <li key={j.id} style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 12, color: '#333' }}>{new Date(j.creado_en).toLocaleString()}</div>
-                  <div style={{ fontSize: 13 }}>{j.motivo_tipo ? `${j.motivo_tipo} — ` : ''}{j.motivo_text}</div>
-                  <div style={{ fontSize: 11, color: '#666' }}>{j.user_agent || j.ip ? `${j.user_agent || ''} ${j.ip ? '· ' + j.ip : ''}` : ''}</div>
+                <li key={j.id} className="justificacion-item">
+                  <div className="justificacion-meta">{new Date(j.creado_en).toLocaleString()}</div>
+                  <div className="justificacion-text">{j.motivo_tipo ? `${j.motivo_tipo} — ` : ''}{j.motivo_text}</div>
+                  <div className="justificacion-meta small">{j.user_agent || j.ip ? `${j.user_agent || ''}${j.ip ? ' · ' + j.ip : ''}` : ''}</div>
                 </li>
               ))}
             </ul>
@@ -36,91 +34,22 @@ export default function JustifyModal({ open, onClose, onSubmit, defaultReason = 
         )}
 
         <form onSubmit={submit}>
-          <div style={styles.field}>
-            <label style={{ fontSize: 13, marginBottom: 6 }}>Tipo</label>
-            <select value={reasonType} onChange={(e) => setReasonType(e.target.value)} style={styles.select}>
-              {reasonTypes.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
+          <div className="form-field">
+            <label className="form-label">Tipo</label>
+            <select className="form-select" value={reasonType} onChange={(e) => setReasonType(e.target.value)}>
+              {reasonTypes.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
-          <div style={styles.field}>
-            <label style={{ fontSize: 13, marginBottom: 6 }}>Motivo (detallado)</label>
-            <textarea value={reasonText} onChange={(e) => setReasonText(e.target.value)} rows={4} style={styles.textarea} />
+          <div className="form-field">
+            <label className="form-label">Motivo (detallado)</label>
+            <textarea className="form-input" value={reasonText} onChange={(e) => setReasonText(e.target.value)} rows={4} />
           </div>
-          <div style={styles.actions}>
-            <button type="button" onClick={onClose} style={styles.btnSecondary}>Cancelar</button>
-            <button type="submit" style={styles.btnPrimary}>Enviar</button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="button" className="btn-mini" onClick={onClose}>Cancelar</button>
+            <button type="submit" className="btn-nuevo">Enviar</button>
           </div>
         </form>
       </div>
     </div>
   );
 }
-
-const styles = {
-  backdrop: {
-    position: 'fixed',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgba(0,0,0,0.4)',
-    zIndex: 9999,
-  },
-  modal: {
-    background: '#fff',
-    padding: 18,
-    borderRadius: 8,
-    width: 540,
-    maxWidth: '96%',
-    boxShadow: '0 6px 18px rgba(0,0,0,0.12)'
-  },
-  existing: {
-    marginBottom: 10,
-    maxHeight: 160,
-    overflowY: 'auto',
-    padding: 8,
-    background: '#fafafa',
-    border: '1px solid #eee',
-    borderRadius: 6,
-  },
-  field: {
-    marginBottom: 12,
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  select: {
-    padding: '8px 10px',
-    borderRadius: 6,
-    border: '1px solid #ddd'
-  },
-  textarea: {
-    padding: 8,
-    borderRadius: 6,
-    border: '1px solid #ddd',
-    fontFamily: 'inherit'
-  },
-  actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 8
-  },
-  btnPrimary: {
-    background: '#1a73e8',
-    color: '#fff',
-    border: 'none',
-    padding: '8px 12px',
-    borderRadius: 6,
-    cursor: 'pointer'
-  },
-  btnSecondary: {
-    background: '#fff',
-    color: '#333',
-    border: '1px solid #ccc',
-    padding: '8px 12px',
-    borderRadius: 6,
-    cursor: 'pointer'
-  }
-};

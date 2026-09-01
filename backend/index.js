@@ -10,6 +10,7 @@ const fichajeRoutes = require('./routes/fichajes');
 const trabajadorRoutes = require('./routes/trabajadores');
 const exportarRoutes = require('./routes/exportar');
 const ausenciasRoutes = require('./routes/ausencias');
+const justificacionesRoutes = require('./routes/justificaciones');
 
 const app = express();
 
@@ -81,6 +82,7 @@ app.use('/api/fichajes', fichajeRoutes);
 app.use('/api/trabajadores', trabajadorRoutes);
 app.use('/api/exportar', exportarRoutes);
 app.use('/api/ausencias', ausenciasRoutes);
+app.use('/api/justificaciones', justificacionesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
