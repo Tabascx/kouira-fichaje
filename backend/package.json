@@ -8,6 +8,7 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
+    "@mapbox/node-pre-gyp": "2.0.3",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -15,11 +16,14 @@
     "express": "^4.18.2",
     "express-rate-limit": "^8.5.2",
     "express-validator": "^7.0.1",
+    "fast-csv": "5.0.7",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^9.0.3",
     "pdfkit": "^0.18.0",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "tar": "7.5.22",
+    "tmp": "0.2.7"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
