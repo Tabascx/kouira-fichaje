@@ -1,5 +1,5 @@
 require('dotenv').config();
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 
 // Script seguro: lee usuarios desde USERS_JSON env var y DATABASE_URL desde env

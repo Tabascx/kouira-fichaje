@@ -1,5 +1,5 @@
 require('dotenv').config();
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { Client } = require('pg');
 
 async function main() {
@@ -46,7 +46,9 @@ main().catch(async (err) => {
   console.error('Error reseteando admin:', err.message);
   process.exitCode = 1;
 });
-const bcrypt = require('bcrypt');
+
+// Second block (legacy) replaced to use bcryptjs
+const bcrypt = require('bcryptjs');
 const { Client } = require('pg');
 
 async function main() {

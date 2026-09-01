@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@mapbox/node-pre-gyp": "2.0.3",
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "exceljs": "^3.4.0",
@@ -26,6 +26,13 @@
     "tmp": "0.2.7"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "npm-force-resolutions": "^0.0.5"
+  },
+  "resolutions": {
+    "@mapbox/node-pre-gyp": "2.0.3",
+    "tar": "7.5.22",
+    "tmp": "0.2.7",
+    "fast-csv": "5.0.7"
   }
 }
