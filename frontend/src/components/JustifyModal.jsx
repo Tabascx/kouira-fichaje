@@ -1,9 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // JustifyModal: uses shared modal styles from Panel.css and specific classes for content
 export default function JustifyModal({ open, onClose, onSubmit, defaultReason = '', reasonTypes = ['permiso', 'vacaciones', 'baja', 'otro'], existing = [] }) {
   const [reasonType, setReasonType] = useState(reasonTypes[0] || 'otro');
   const [reasonText, setReasonText] = useState(defaultReason);
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    setReasonType(reasonTypes[0] || 'otro');
+    setReasonText(defaultReason || '');
+  }, [reasonTypes, defaultReason]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose && onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -13,10 +26,16 @@ export default function JustifyModal({ open, onClose, onSubmit, defaultReason = 
     // parent will close on success
   };
 
+  const onBackdropClick = (e) => {
+    // close if clicking the backdrop (not the card)
+    if (e.target === e.currentTarget) onClose && onClose();
+  };
+
   return (
-    <div className="modal-fondo" role="dialog" aria-modal="true">
-      <div className="modal-card" style={{ maxWidth: 560 }}>
-        <div className="modal-titulo">Justificar fichaje</div>
+    <div className="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="justify-title" onClick={onBackdropClick}>
+      <div className="modal-card" ref={cardRef} role="document">
+        <button aria-label="Cerrar" className="modal-close" onClick={onClose}>✕</button>
+        <div className="modal-titulo" id="justify-title">Justificar fichaje</div>
 
         {existing && existing.length > 0 && (
           <div className="justificaciones-list">
@@ -36,7 +55,7 @@ export default function JustifyModal({ open, onClose, onSubmit, defaultReason = 
         <form onSubmit={submit}>
           <div className="form-field">
             <label className="form-label">Tipo</label>
-            <select className="form-select" value={reasonType} onChange={(e) => setReasonType(e.target.value)}>
+            <select className="form-select" value={reasonType} onChange={(e) => setReasonType(e.target.value)} autoFocus>
               {reasonTypes.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>

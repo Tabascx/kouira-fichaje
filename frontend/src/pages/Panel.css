@@ -322,14 +322,17 @@
 .modal-fondo {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.65); /* darker backdrop for focus */
+  background: rgba(0,0,0,0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1200;
   padding: 20px;
+  transition: background 220ms ease;
+  backdrop-filter: blur(3px);
 }
 .modal-card {
+  position: relative;
   background: white;
   border-radius: 12px;
   padding: 28px 22px;
@@ -337,7 +340,14 @@
   max-width: 640px; /* wider modal for clarity */
   box-shadow: 0 24px 60px rgba(0,0,0,0.28);
   border: 1px solid rgba(26,115,232,0.06);
+  transform: translateY(8px);
+  opacity: 0;
+  animation: modalEnter 220ms cubic-bezier(.2,.9,.3,1) forwards;
 }
+@keyframes modalEnter { to { transform: translateY(0); opacity: 1; } }
+.modal-card:focus { outline: none; }
+.modal-close { position: absolute; right: 16px; top: 12px; background: transparent; border: none; font-size: 18px; cursor: pointer; color: #6b7280; }
+.modal-close:focus { outline: 2px solid #cfe0ff; border-radius: 6px; }
 .modal-icono { font-size: 36px; text-align: center; margin-bottom: 10px; }
 .modal-titulo { font-size: 18px; font-weight: 700; color: #0f3f80; margin-bottom: 14px; text-align: left; }
 .modal-desc   { font-size: 14px; color: #666; margin-bottom: 14px; text-align: left; }
@@ -367,8 +377,9 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 8px 18px rgba(15,98,255,0.12);
 }
-.btn-nuevo:hover { background: #094ad1; }
+.btn-nuevo:hover { background: #094ad1; transform: translateY(-1px); }
 
 .btn-mini {
   background: #fff;
@@ -379,6 +390,28 @@
 }
 .btn-mini:hover { background: #f1f5ff; }
 
+/* focus outlines for accessibility */
+.btn-fichar:focus, .btn-mini:focus, .btn-nuevo:focus, .btn-login:focus, .btn-logout:focus { outline: 3px solid rgba(15,98,255,0.15); outline-offset: 2px; }
+
+@media (max-width: 600px) {
+  .modal-card { max-width: 96%; padding: 18px; }
+  .modal-titulo { font-size: 16px; }
+}
+
+@media (max-width: 400px) {
+  .panel-fondo { padding: 8px; }
+  .reloj { font-size: 36px; }
+  .tab { font-size: 11px; padding: 8px 2px; }
+  .btns-exportar { justify-content: flex-end; }
+  .trabajador-acciones { gap: 4px; }
+}
+
+/* FICHAJE MANUAL SECCIÓN */
+.fichaje-manual-seccion {
+  border: 1.5px dashed #c5d5f0;
+  background: #f8faff;
+}
+.fichaje-manual-header {
 @media (max-width: 600px) {
   .modal-card { max-width: 96%; padding: 18px; }
   .modal-titulo { font-size: 16px; }
