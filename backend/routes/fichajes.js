@@ -168,4 +168,56 @@ router.get('/auditoria/historial', verificarToken, soloAdmin, async (req, res) =
   }
 });
 
+
+// Justificar un fichaje (motivo + tipo)
+router.post('/:id/justify',
+  verificarToken,
+  body('motivo_tipo').optional().isIn(['pausa', 'descanso']).withMessage('motivo_tipo debe ser pausa o descanso'),
+  body('motivo_text').optional({ nullable: true, checkFalsy: true }).isString().withMessage('motivo_text debe ser texto si se envía').isLength({ min: 1 }).withMessage('motivo_text no puede estar vacío'),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { id } = req.params;
+    const { motivo_tipo, motivo_text } = req.body;
+    const usuario_id = req.usuario.id;
+    try {
+      const fichajeRes = await pool.query('SELECT * FROM fichajes WHERE id = $1', [id]);
+      if (fichajeRes.rowCount === 0) return res.status(404).json({ error: 'Fichaje no encontrado' });
+
+      const tipoValido = motivo_tipo || 'pausa';
+      const motivoFinal = typeof motivo_text === 'string' && motivo_text.trim() ? motivo_text.trim() : (tipoValido === 'descanso' ? 'Descanso del trabajador' : 'Pausa del trabajador');
+
+      const insertRes = await pool.query(
+        'INSERT INTO justificaciones (fichaje_id, usuario_id, motivo_tipo, motivo_text, ip, user_agent) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [id, usuario_id, tipoValido, motivoFinal, req.ip, req.headers['user-agent'] || null]
+      );
+
+      await registrarAuditoria({ accion: 'justificar', tabla: 'fichajes', registro_id: Number(id), usuario_id, datos_anterior: null, razon: motivoFinal, req });
+
+      res.status(201).json(insertRes.rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error al guardar justificación' });
+    }
+  }
+);
+
+// Obtener justificaciones de un fichaje (propietario o admin)
+router.get('/:id/justificaciones', verificarToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const fichajeRes = await pool.query('SELECT usuario_id FROM fichajes WHERE id = $1', [id]);
+    if (fichajeRes.rowCount === 0) return res.status(404).json({ error: 'Fichaje no encontrado' });
+    const ownerId = fichajeRes.rows[0].usuario_id;
+    if (req.usuario.id !== ownerId && req.usuario.rol !== 'admin') return res.status(403).json({ error: 'No autorizado' });
+
+    const resJ = await pool.query('SELECT id, fichaje_id, usuario_id, motivo_tipo, motivo_text, creado_en, ip, user_agent FROM justificaciones WHERE fichaje_id = $1 ORDER BY creado_en DESC', [id]);
+    res.json(resJ.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener justificaciones' });
+  }
+});
+
 module.exports = router;

@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 
 const express = require('express');
 const cors = require('cors');
@@ -10,14 +10,24 @@ const fichajeRoutes = require('./routes/fichajes');
 const trabajadorRoutes = require('./routes/trabajadores');
 const exportarRoutes = require('./routes/exportar');
 const ausenciasRoutes = require('./routes/ausencias');
+const justificacionesRoutes = require('./routes/justificaciones');
 
 const app = express();
 
 // Comprobaciones básicas de entorno
 const requiredEnvs = ['JWT_SECRET'];
-const missing = requiredEnvs.filter(e => !process.env[e]);
-if (missing.length) {
-  console.error('Faltan variables de entorno obligatorias:', missing.join(', '));
+const missing = requiredEnvs.filter((e) => !process.env[e]);
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+const requiredDbEnvs = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
+const missingDb = requiredDbEnvs.filter((e) => !process.env[e]);
+
+if (missing.length || (!hasDatabaseUrl && missingDb.length)) {
+  const reasons = [];
+  if (missing.length) reasons.push(...missing.map((e) => `${e} (JWT)`));
+  if (!hasDatabaseUrl && missingDb.length) {
+    reasons.push(`DB config incompleta: ${missingDb.join(', ')}`);
+  }
+  console.error('Faltan variables de entorno obligatorias:', reasons.join(' | '));
   process.exit(1);
 }
 
@@ -81,6 +91,7 @@ app.use('/api/fichajes', fichajeRoutes);
 app.use('/api/trabajadores', trabajadorRoutes);
 app.use('/api/exportar', exportarRoutes);
 app.use('/api/ausencias', ausenciasRoutes);
+app.use('/api/justificaciones', justificacionesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import './Panel.css';
 import { t } from '../i18n';
+import JustifyModal from '../components/JustifyModal';
 
 export default function PanelTrabajador() {
   const { usuario, logout, actualizarUsuario } = useAuth();
@@ -132,6 +133,41 @@ export default function PanelTrabajador() {
   const totalHoras   = Math.floor(totalMs / (1000 * 60 * 60));
   const totalMinutos = Math.floor((totalMs % (1000 * 60 * 60)) / (1000 * 60));
 
+  // Justificar modal state & handlers
+  const [justificarOpen, setJustificarOpen] = useState(false);
+  const [justificarTarget, setJustificarTarget] = useState(null);
+
+  const [justificarExisting, setJustificarExisting] = useState([]);
+  const [justificarLoading, setJustificarLoading] = useState(false);
+
+  const abrirJustificar = async (f) => {
+    setJustificarTarget(f);
+    setJustificarOpen(true);
+    setJustificarExisting([]);
+    setJustificarLoading(true);
+    try {
+      const { data } = await api.get(`/fichajes/${f.id}/justificaciones`);
+      setJustificarExisting(data);
+    } catch (err) {
+      // ignore silently; user can still post
+    } finally {
+      setJustificarLoading(false);
+    }
+  };
+
+  const cerrarJustificar = () => { setJustificarTarget(null); setJustificarOpen(false); setJustificarExisting([]); };
+  const enviarJustificacion = async ({ reasonType, reasonText }) => {
+    if (!justificarTarget) return;
+    try {
+      await api.post(`/fichajes/${justificarTarget.id}/justify`, { motivo_tipo: reasonType, motivo_text: reasonText });
+      cerrarJustificar();
+      cargarFichajes();
+      alert('Justificación enviada');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Error al enviar justificación');
+    }
+  };
+
   return (
       <div className="panel-fondo">
         <div className="panel-wrap">
@@ -226,9 +262,12 @@ export default function PanelTrabajador() {
                             <div key={f.id} className="fila-fichaje">
                               <span className={`fila-tipo ${f.tipo}`}>{t(f.tipo)}</span>
                               <span className="fila-hora">{formatHora(f.fecha_hora)}</span>
-                              <button className="btn-mini rojo" onClick={() => eliminarMiFichaje(f.id)}>✕</button>
-                            </div>
-                        ))}
+                                                      <div style={{ display: 'flex', gap: 8 }}>
+                                                        <button className="btn-mini" onClick={() => abrirJustificar(f)}>📝</button>
+                                                        <button className="btn-mini rojo" onClick={() => eliminarMiFichaje(f.id)}>✕</button>
+                                                      </div>
+                                                    </div>
+                                                ))}
                       </div>
                     </div>
                 )}
@@ -294,6 +333,9 @@ export default function PanelTrabajador() {
                 )}
               </div>
           )}
+
+          {/* Justify modal */}
+          <JustifyModal open={justificarOpen} onClose={cerrarJustificar} onSubmit={enviarJustificacion} defaultReason={''} existing={justificarExisting} />
 
         </div>
       </div>
