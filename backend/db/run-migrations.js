@@ -5,15 +5,23 @@ const pool = require('./connection');
 
 async function run() {
   try {
-    const migPath = path.join(__dirname, 'migrations', '20260901_add_ausencias_auditoria.sql');
-    if (!fs.existsSync(migPath)) {
-      console.error('Migration file not found:', migPath);
+    const migDir = path.join(__dirname, 'migrations');
+    if (!fs.existsSync(migDir)) {
+      console.error('Migrations directory not found:', migDir);
       process.exit(1);
     }
-    const sql = fs.readFileSync(migPath, 'utf8');
-    console.log('Running migration...');
-    await pool.query(sql);
-    console.log('Migration applied successfully');
+    const files = fs.readdirSync(migDir).filter(f => f.endsWith('.sql')).sort();
+    if (files.length === 0) {
+      console.log('No migration files found');
+      process.exit(0);
+    }
+    for (const f of files) {
+      const migPath = path.join(migDir, f);
+      console.log('Running migration:', f);
+      const sql = fs.readFileSync(migPath, 'utf8');
+      await pool.query(sql);
+    }
+    console.log('All migrations applied successfully');
   } catch (err) {
     console.error('Migration error:', err);
     process.exit(1);
