@@ -3,6 +3,7 @@ const bcrypt  = require('bcrypt');
 const pool    = require('../db/connection');
 const { verificarToken, soloAdmin } = require('../middleware/auth');
 
+const { body, validationResult } = require('express-validator');
 const router = express.Router();
 
 router.get('/', verificarToken, soloAdmin, async (req, res) => {
@@ -16,23 +17,31 @@ router.get('/', verificarToken, soloAdmin, async (req, res) => {
   }
 });
 
-router.post('/', verificarToken, soloAdmin, async (req, res) => {
-  const { nombre, username, password, rol = 'trabajador' } = req.body;
-  if (!nombre || !username || !password) {
-    return res.status(400).json({ error: 'nombre, username y password son obligatorios' });
+router.post('/',
+  verificarToken,
+  soloAdmin,
+  body('nombre').isString().isLength({ min: 1 }).withMessage('nombre obligatorio'),
+  body('username').isAlphanumeric().isLength({ min: 3 }).withMessage('username inválido'),
+  body('password').isLength({ min: 8 }).withMessage('password mínimo 8 caracteres'),
+  body('rol').optional().isIn(['trabajador','admin']),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { nombre, username, password, rol = 'trabajador' } = req.body;
+    try {
+      const hash = await bcrypt.hash(password, 10);
+      const resultado = await pool.query(
+          'INSERT INTO usuarios (nombre, username, password, rol) VALUES ($1, $2, $3, $4) RETURNING id, nombre, username, rol',
+          [nombre, username, hash, rol]
+      );
+      res.status(201).json(resultado.rows[0]);
+    } catch (err) {
+      if (err.code === '23505') return res.status(409).json({ error: 'Ese username ya existe' });
+      res.status(500).json({ error: 'Error al crear trabajador' });
+    }
   }
-  try {
-    const hash = await bcrypt.hash(password, 10);
-    const resultado = await pool.query(
-        'INSERT INTO usuarios (nombre, username, password, rol) VALUES ($1, $2, $3, $4) RETURNING id, nombre, username, rol',
-        [nombre, username, hash, rol]
-    );
-    res.status(201).json(resultado.rows[0]);
-  } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Ese username ya existe' });
-    res.status(500).json({ error: 'Error al crear trabajador' });
-  }
-});
+);
 
 router.put('/:id', verificarToken, soloAdmin, async (req, res) => {
   const { nombre, username, activo } = req.body;

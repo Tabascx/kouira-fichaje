@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS ausencias (
   usuario_id      INTEGER NOT NULL REFERENCES usuarios(id),
   fecha           DATE NOT NULL,
   justificada     BOOLEAN NOT NULL DEFAULT false,
+  motivo_tipo     VARCHAR(50),
   motivo          TEXT,
   creado_en       TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -41,6 +42,8 @@ CREATE TABLE IF NOT EXISTS auditoria (
   usuario_id      INTEGER NOT NULL REFERENCES usuarios(id),  -- admin que hizo el cambio
   datos_anterior  JSONB,                 -- datos antes del cambio
   razon           TEXT,                  -- motivo opcional
+  ip              VARCHAR(45),          -- IP desde la que se hizo la acción (opcional)
+  user_agent      TEXT,                 -- User-Agent/report del dispositivo
   creado_en       TIMESTAMP NOT NULL DEFAULT NOW()
 );
 

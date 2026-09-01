@@ -2,6 +2,7 @@ const express = require('express');
 const pool    = require('../db/connection');
 const { verificarToken, soloAdmin } = require('../middleware/auth');
 const { registrarAuditoria } = require('../db/auditoria');
+const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
@@ -32,40 +33,61 @@ router.get('/', verificarToken, soloAdmin, async (req, res) => {
   }
 });
 
-router.post('/', verificarToken, soloAdmin, async (req, res) => {
-  const { usuario_id, fecha, justificada = false, motivo_tipo = null, motivo = '' } = req.body;
-  if (!usuario_id || !fecha) return res.status(400).json({ error: 'usuario_id y fecha son obligatorios' });
-  try {
-    const resultado = await pool.query(
-        `INSERT INTO ausencias (usuario_id, fecha, justificada, motivo_tipo, motivo)
-         VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (usuario_id, fecha) DO UPDATE SET justificada = $3, motivo_tipo = $4, motivo = $5
-                                                RETURNING *`,
-        [usuario_id, fecha, justificada, motivo_tipo, motivo]
-    );
-    await registrarAuditoria({ accion: 'crear', tabla: 'ausencias', registro_id: resultado.rows[0].id, usuario_id: req.usuario.id, datos_anterior: resultado.rows[0], req });
-    res.status(201).json(resultado.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al registrar ausencia' });
-  }
-});
+router.post('/',
+  verificarToken,
+  soloAdmin,
+  body('usuario_id').isInt().withMessage('usuario_id debe ser entero'),
+  body('fecha').isISO8601().withMessage('fecha debe ser YYYY-MM-DD'),
+  body('justificada').optional().isBoolean().withMessage('justificada debe ser booleano'),
+  body('motivo_tipo').optional().isString().isLength({ max: 50 }),
+  body('motivo').optional().isString().isLength({ max: 2000 }),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-router.put('/:id', verificarToken, soloAdmin, async (req, res) => {
-  const { justificada, motivo_tipo = null, motivo = '' } = req.body;
-  try {
-    const anterior = await pool.query('SELECT * FROM ausencias WHERE id = $1', [req.params.id]);
-    await pool.query(
-        'UPDATE ausencias SET justificada = $1, motivo_tipo = $2, motivo = $3 WHERE id = $4',
-        [justificada, motivo_tipo, motivo, req.params.id]
-    );
-    await registrarAuditoria({ accion: 'editar', tabla: 'ausencias', registro_id: Number(req.params.id), usuario_id: req.usuario.id, datos_anterior: anterior.rows[0], req });
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al actualizar ausencia' });
+    const { usuario_id, fecha, justificada = false, motivo_tipo = null, motivo = '' } = req.body;
+    try {
+      const resultado = await pool.query(
+          `INSERT INTO ausencias (usuario_id, fecha, justificada, motivo_tipo, motivo)
+           VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (usuario_id, fecha) DO UPDATE SET justificada = $3, motivo_tipo = $4, motivo = $5
+                                                  RETURNING *`,
+          [usuario_id, fecha, justificada, motivo_tipo, motivo]
+      );
+      await registrarAuditoria({ accion: 'crear', tabla: 'ausencias', registro_id: resultado.rows[0].id, usuario_id: req.usuario.id, datos_anterior: resultado.rows[0], req });
+      res.status(201).json(resultado.rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error al registrar ausencia' });
+    }
   }
-});
+);
+
+router.put('/:id',
+  verificarToken,
+  soloAdmin,
+  body('justificada').optional().isBoolean().withMessage('justificada debe ser booleano'),
+  body('motivo_tipo').optional().isString().isLength({ max: 50 }),
+  body('motivo').optional().isString().isLength({ max: 2000 }),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { justificada, motivo_tipo = null, motivo = '' } = req.body;
+    try {
+      const anterior = await pool.query('SELECT * FROM ausencias WHERE id = $1', [req.params.id]);
+      await pool.query(
+          'UPDATE ausencias SET justificada = $1, motivo_tipo = $2, motivo = $3 WHERE id = $4',
+          [justificada, motivo_tipo, motivo, req.params.id]
+      );
+      await registrarAuditoria({ accion: 'editar', tabla: 'ausencias', registro_id: Number(req.params.id), usuario_id: req.usuario.id, datos_anterior: anterior.rows[0], req });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error al actualizar ausencia' });
+    }
+  }
+);
 
 router.delete('/:id', verificarToken, soloAdmin, async (req, res) => {
   try {

@@ -2,6 +2,8 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const authRoutes = require('./routes/auth');
 const fichajeRoutes = require('./routes/fichajes');
@@ -11,8 +13,41 @@ const ausenciasRoutes = require('./routes/ausencias');
 
 const app = express();
 
+// Comprobaciones básicas de entorno
+const requiredEnvs = ['JWT_SECRET'];
+const missing = requiredEnvs.filter(e => !process.env[e]);
+if (missing.length) {
+  console.error('Faltan variables de entorno obligatorias:', missing.join(', '));
+  process.exit(1);
+}
+
 const PORT = process.env.PORT || 3002;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+
+// Trust proxy configurable (útil en Heroku/Render/Vercel)
+if (process.env.TRUST_PROXY) {
+  app.set('trust proxy', process.env.TRUST_PROXY);
+}
+
+// Seguridad HTTP headers
+app.use(helmet());
+
+// Rate limiting básico (configurable vía env)
+const globalLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX) || 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(globalLimiter);
+
+const authLoginLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: Number(process.env.RATE_LIMIT_AUTH_MAX) || 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
@@ -40,7 +75,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
+// Rutas
+app.use('/api/auth', authLoginLimiter, authRoutes);
 app.use('/api/fichajes', fichajeRoutes);
 app.use('/api/trabajadores', trabajadorRoutes);
 app.use('/api/exportar', exportarRoutes);

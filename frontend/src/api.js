@@ -1,17 +1,13 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 
 // Todas las peticiones al backend van por aquí
 const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3002/api';
-const api = axios.create({
-  baseURL,
-});
+const api = axios.create({ baseURL });
 
 // Interceptor: añade el token JWT automáticamente a cada petición
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = 'Bearer ' + token;
   return config;
 });
 

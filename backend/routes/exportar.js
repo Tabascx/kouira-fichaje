@@ -22,7 +22,7 @@ async function getDatosMes(usuario_id, mes) {
   const trabajador = usuRes.rows[0];
 
   const ficRes = await pool.query(
-      `SELECT DATE(fecha_hora)::text AS dia, tipo, TO_CHAR(fecha_hora, 'HH24:MI:SS') AS hora
+     `SELECT DATE(fecha_hora)::text AS dia, tipo, TO_CHAR(fecha_hora, 'HH24:MI:SS') AS hora, ip_origen
        FROM fichajes
        WHERE usuario_id = $1 AND TO_CHAR(fecha_hora, 'YYYY-MM') = $2
        ORDER BY fecha_hora ASC`,
@@ -31,9 +31,15 @@ async function getDatosMes(usuario_id, mes) {
 
   const porDia = {};
   for (const f of ficRes.rows) {
-    if (!porDia[f.dia]) porDia[f.dia] = { entrada: null, salida: null };
-    if (f.tipo === 'entrada' && !porDia[f.dia].entrada) porDia[f.dia].entrada = f.hora;
-    if (f.tipo === 'salida') porDia[f.dia].salida = f.hora;
+    if (!porDia[f.dia]) porDia[f.dia] = { entrada: null, salida: null, entrada_ip: null, salida_ip: null };
+    if (f.tipo === 'entrada' && !porDia[f.dia].entrada) {
+      porDia[f.dia].entrada = f.hora;
+      porDia[f.dia].entrada_ip = f.ip_origen || '';
+    }
+    if (f.tipo === 'salida') {
+      porDia[f.dia].salida = f.hora;
+      porDia[f.dia].salida_ip = f.ip_origen || '';
+    }
   }
 
   const [anyo, numMes] = mes.split('-').map(Number);
@@ -105,7 +111,7 @@ router.get('/excel', verificarToken, soloAdmin, async (req, res) => {
     hoja.getCell('A3').font  = { size: 11, color: { argb: 'FF555555' } };
     hoja.addRow([]);
 
-    const cab = hoja.addRow(['Fecha', 'Día', 'Entrada', 'Salida', 'Horas trabajadas', 'Horas extra']);
+    const cab = hoja.addRow(['Fecha', 'Día', 'Entrada', 'Salida', 'IP entrada', 'IP salida', 'Horas trabajadas', 'Horas extra']);
     cab.eachCell((cell) => {
       cell.font      = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF185FA5' } };
@@ -116,26 +122,28 @@ router.get('/excel', verificarToken, soloAdmin, async (req, res) => {
     hoja.getColumn(2).width = 13;
     hoja.getColumn(3).width = 12;
     hoja.getColumn(4).width = 12;
-    hoja.getColumn(5).width = 18;
-    hoja.getColumn(6).width = 14;
+    hoja.getColumn(5).width = 18; // IP entrada
+    hoja.getColumn(6).width = 18; // IP salida
+    hoja.getColumn(7).width = 18;
+    hoja.getColumn(8).width = 14;
 
     for (const f of filas) {
-      const fila = hoja.addRow([f.fechaStr, f.diaSem, f.entrada, f.salida, f.horasTxt, f.extraTxt]);
+      const fila = hoja.addRow([f.fechaStr, f.diaSem, f.entrada, f.salida, f.entrada_ip || '', f.salida_ip || '', f.horasTxt, f.extraTxt]);
       let color = f.esFinSem ? 'FFF0F0F0' : (!f.entrada ? 'FFFFF3CD' : 'FFEBF8F2');
       if (f.esExtra) color = 'FFFFF3CD'; // amarillo si hay horas extra
       fila.eachCell((cell, col) => {
         cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
         cell.alignment = { horizontal: 'center' };
         if (f.esFinSem) cell.font = { color: { argb: 'FF999999' } };
-        if (col === 6 && f.esExtra) cell.font = { bold: true, color: { argb: 'FFCC6600' } };
+        if (col === 8 && f.esExtra) cell.font = { bold: true, color: { argb: 'FFCC6600' } };
       });
     }
 
     hoja.addRow([]);
-    const tot = hoja.addRow(['', '', '', 'TOTAL HORAS:', `${Math.floor(totalMinutos/60)}h ${totalMinutos%60}m`, `${Math.floor(totalMinutosExtra/60)}h ${totalMinutosExtra%60}m extra`]);
-    tot.getCell(4).font = { bold: true };
-    tot.getCell(5).font = { bold: true, color: { argb: 'FF185FA5' } };
-    tot.getCell(6).font = { bold: true, color: { argb: 'FFCC6600' } };
+    const tot = hoja.addRow(['', '', '', '', '', 'TOTAL HORAS:', `${Math.floor(totalMinutos/60)}h ${totalMinutos%60}m`, `${Math.floor(totalMinutosExtra/60)}h ${totalMinutosExtra%60}m extra`]);
+    tot.getCell(6).font = { bold: true };
+    tot.getCell(7).font = { bold: true, color: { argb: 'FF185FA5' } };
+    tot.getCell(8).font = { bold: true, color: { argb: 'FFCC6600' } };
 
     hoja.addRow([]);
     // Firma
@@ -183,23 +191,27 @@ router.get('/pdf', verificarToken, soloAdmin, async (req, res) => {
     // Línea separadora
     doc.moveTo(40, 84).lineTo(555, 84).strokeColor('#185FA5').lineWidth(1.5).stroke();
 
-    // Info trabajador
-    doc.roundedRect(40, 92, 515, 44, 6).fillAndStroke('#EBF4FF', '#185FA5');
+    // Info trabajador + metadata de export
+    doc.roundedRect(40, 92, 515, 56, 6).fillAndStroke('#EBF4FF', '#185FA5');
     doc.fillColor('#185FA5').font('Helvetica-Bold').fontSize(10).text('Trabajador:', 54, 103);
     doc.fillColor('#1a1a1a').font('Helvetica').text(trabajador.nombre, 130, 103);
     doc.fillColor('#185FA5').font('Helvetica-Bold').text('Mes:', 330, 103);
     doc.fillColor('#1a1a1a').font('Helvetica').text(nombreMes, 365, 103);
-    doc.fillColor('#555555').fontSize(8).text(`Jornada convenio: ${EMPRESA.jornada_max_dia}h/día · ${EMPRESA.jornada_semanal}h/semana`, 54, 118);
+    doc.fillColor('#555555').fontSize(8).text(`Jornada convenio: ${EMPRESA.jornada_max_dia}h/día · ${EMPRESA.jornada_semanal}h/semana`, 54, 122);
 
+    // Metadata: quién exporta y desde qué IP (si está disponible)
+    const exportedBy = req.usuario?.nombre ? `${req.usuario.nombre} (${req.usuario.username || ''})` : 'Desconocido';
+    const exporterIp = req.ip || '';
+    doc.fontSize(8).fillColor('#666666').text(`Exportado por: ${exportedBy} · IP: ${exporterIp}`, 54, 136);
     // Cabecera tabla
-    const colX  = [40, 125, 220, 305, 385, 470];
-    const colW  = [80, 90, 80, 80, 80, 85];
-    const heads = ['Fecha', 'Día', 'Entrada', 'Salida', 'Horas', 'H. Extra'];
+    const colX  = [40, 110, 190, 270, 350, 430, 480, 540];
+    const colW  = [70, 80, 70, 70, 70, 80, 60, 60];
+    const heads = ['Fecha', 'Día', 'Entrada', 'Salida', 'IP entrada', 'IP salida', 'Horas', 'H. Extra'];
     let y = 152;
 
     doc.rect(40, y, 515, 18).fill('#185FA5');
     heads.forEach((h, i) => {
-      doc.fillColor('white').font('Helvetica-Bold').fontSize(8.5)
+      doc.fillColor('white').font('Helvetica-Bold').fontSize(7.5)
           .text(h, colX[i] + 2, y + 5, { width: colW[i], align: 'center' });
     });
     y += 18;
@@ -210,12 +222,12 @@ router.get('/pdf', verificarToken, soloAdmin, async (req, res) => {
       const bg = f.esFinSem ? '#F5F5F5' : (f.esExtra ? '#FFF8E1' : (!f.entrada ? '#FFFBEA' : '#F0FBF5'));
       doc.rect(40, y, 515, 15).fill(bg);
 
-      const vals = [f.fechaStr, f.diaSem, f.entrada, f.salida, f.horasTxt, f.extraTxt];
+      const vals = [f.fechaStr, f.diaSem, f.entrada, f.salida, f.entrada_ip || '', f.salida_ip || '', f.horasTxt, f.extraTxt];
       vals.forEach((v, i) => {
-        const color = f.esFinSem ? '#999999' : (i === 5 && f.esExtra ? '#CC6600' : '#1a1a1a');
-        const bold  = i === 5 && f.esExtra;
-        doc.fillColor(color).font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8)
-            .text(v, colX[i] + 2, y + 4, { width: colW[i], align: 'center' });
+        const color = f.esFinSem ? '#999999' : (i === 7 && f.esExtra ? '#CC6600' : '#1a1a1a');
+        const bold  = i === 7 && f.esExtra;
+        doc.fillColor(color).font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(7.5)
+            .text(String(v), colX[i] + 2, y + 4, { width: colW[i], align: 'center', ellipsis: true });
       });
 
       doc.moveTo(40, y + 15).lineTo(555, y + 15).strokeColor('#EEEEEE').lineWidth(0.4).stroke();
@@ -270,7 +282,7 @@ router.get('/mio/excel', verificarToken, async (req, res) => {
     hoja.getCell('A2').font  = { size: 11, color: { argb: 'FF555555' } };
     hoja.addRow([]);
 
-    const cab = hoja.addRow(['Fecha', 'Día', 'Entrada', 'Salida', 'Horas', 'H. Extra']);
+    const cab = hoja.addRow(['Fecha', 'Día', 'Entrada', 'Salida', 'IP entrada', 'IP salida', 'Horas', 'H. Extra']);
     cab.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF185FA5' } };
@@ -278,10 +290,11 @@ router.get('/mio/excel', verificarToken, async (req, res) => {
     });
     hoja.getColumn(1).width = 14; hoja.getColumn(2).width = 13;
     hoja.getColumn(3).width = 12; hoja.getColumn(4).width = 12;
-    hoja.getColumn(5).width = 16; hoja.getColumn(6).width = 14;
+    hoja.getColumn(5).width = 16; hoja.getColumn(6).width = 16;
+    hoja.getColumn(7).width = 16; hoja.getColumn(8).width = 14;
 
     for (const f of filas) {
-      const fila  = hoja.addRow([f.fechaStr, f.diaSem, f.entrada, f.salida, f.horasTxt, f.extraTxt]);
+      const fila  = hoja.addRow([f.fechaStr, f.diaSem, f.entrada, f.salida, f.entrada_ip || '', f.salida_ip || '', f.horasTxt, f.extraTxt]);
       const color = f.esFinSem ? 'FFF0F0F0' : (f.esExtra ? 'FFFFF3CD' : 'FFEBF8F2');
       fila.eachCell((cell) => {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
@@ -290,9 +303,9 @@ router.get('/mio/excel', verificarToken, async (req, res) => {
     }
 
     hoja.addRow([]);
-    const tot = hoja.addRow(['', '', '', 'TOTAL:', `${Math.floor(totalMinutos/60)}h ${totalMinutos%60}m`, `${Math.floor(totalMinutosExtra/60)}h ${totalMinutosExtra%60}m extra`]);
-    tot.getCell(4).font = { bold: true };
-    tot.getCell(5).font = { bold: true, color: { argb: 'FF185FA5' } };
+    const tot = hoja.addRow(['', '', '', '', '', 'TOTAL:', `${Math.floor(totalMinutos/60)}h ${totalMinutos%60}m`, `${Math.floor(totalMinutosExtra/60)}h ${totalMinutosExtra%60}m extra`]);
+    tot.getCell(6).font = { bold: true };
+    tot.getCell(7).font = { bold: true, color: { argb: 'FF185FA5' } };
 
     const nombreArchivo = `mis_fichajes_${trabajador.nombre.replace(/ /g,'_')}_${mes}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -324,20 +337,26 @@ router.get('/mio/pdf', verificarToken, async (req, res) => {
     doc.fontSize(9).font('Helvetica').fillColor('#555555').text('CIF: B72564354', 40, 58);
     doc.moveTo(40, 72).lineTo(555, 72).strokeColor('#185FA5').lineWidth(1.5).stroke();
 
-    doc.roundedRect(40, 80, 515, 36, 6).fillAndStroke('#EBF4FF', '#185FA5');
+    doc.roundedRect(40, 80, 515, 56, 6).fillAndStroke('#EBF4FF', '#185FA5');
     doc.fillColor('#185FA5').font('Helvetica-Bold').fontSize(10).text('Trabajador:', 54, 91);
     doc.fillColor('#1a1a1a').font('Helvetica').text(trabajador.nombre, 130, 91);
     doc.fillColor('#185FA5').font('Helvetica-Bold').text('Mes:', 330, 91);
     doc.fillColor('#1a1a1a').font('Helvetica').text(nombreMes, 365, 91);
+    doc.fillColor('#555555').fontSize(8).text(`Jornada convenio: ${EMPRESA.jornada_max_dia}h/día · ${EMPRESA.jornada_semanal}h/semana`, 54, 112);
 
-    const colX  = [40, 125, 220, 305, 385, 470];
-    const colW  = [80, 90, 80, 80, 80, 85];
-    const heads = ['Fecha', 'Día', 'Entrada', 'Salida', 'Horas', 'H. Extra'];
-    let y = 130;
+    // Metadata
+    const exportedBy = req.usuario?.nombre ? `${req.usuario.nombre} (${req.usuario.username || ''})` : 'Desconocido';
+    const exporterIp = req.ip || '';
+    doc.fontSize(8).fillColor('#666666').text(`Exportado por: ${exportedBy} · IP: ${exporterIp}`, 54, 126);
+
+    const colX  = [40, 110, 190, 270, 350, 430, 490, 550];
+    const colW  = [70, 80, 70, 70, 70, 70, 60, 60];
+    const heads = ['Fecha', 'Día', 'Entrada', 'Salida', 'IP entrada', 'IP salida', 'Horas', 'H. Extra'];
+    let y = 144;
 
     doc.rect(40, y, 515, 18).fill('#185FA5');
     heads.forEach((h, i) => {
-      doc.fillColor('white').font('Helvetica-Bold').fontSize(8.5).text(h, colX[i] + 2, y + 5, { width: colW[i], align: 'center' });
+      doc.fillColor('white').font('Helvetica-Bold').fontSize(7.5).text(h, colX[i] + 2, y + 4, { width: colW[i], align: 'center' });
     });
     y += 18;
 
@@ -345,9 +364,10 @@ router.get('/mio/pdf', verificarToken, async (req, res) => {
       if (y > 750) { doc.addPage(); y = 40; }
       const bg = f.esFinSem ? '#F5F5F5' : (f.esExtra ? '#FFF8E1' : '#F0FBF5');
       doc.rect(40, y, 515, 15).fill(bg);
-      [f.fechaStr, f.diaSem, f.entrada, f.salida, f.horasTxt, f.extraTxt].forEach((v, i) => {
-        const color = f.esFinSem ? '#999' : (i === 5 && f.esExtra ? '#CC6600' : '#1a1a1a');
-        doc.fillColor(color).font('Helvetica').fontSize(8).text(v, colX[i] + 2, y + 4, { width: colW[i], align: 'center' });
+      const vals = [f.fechaStr, f.diaSem, f.entrada, f.salida, f.entrada_ip || '', f.salida_ip || '', f.horasTxt, f.extraTxt];
+      vals.forEach((v, i) => {
+        const color = f.esFinSem ? '#999' : (i === 7 && f.esExtra ? '#CC6600' : '#1a1a1a');
+        doc.fillColor(color).font('Helvetica').fontSize(7.5).text(String(v), colX[i] + 2, y + 3, { width: colW[i], align: 'center', ellipsis: true });
       });
       doc.moveTo(40, y+15).lineTo(555, y+15).strokeColor('#EEE').lineWidth(0.4).stroke();
       y += 15;
