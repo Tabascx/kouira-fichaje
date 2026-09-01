@@ -16,9 +16,18 @@ const app = express();
 
 // Comprobaciones básicas de entorno
 const requiredEnvs = ['JWT_SECRET'];
-const missing = requiredEnvs.filter(e => !process.env[e]);
-if (missing.length) {
-  console.error('Faltan variables de entorno obligatorias:', missing.join(', '));
+const missing = requiredEnvs.filter((e) => !process.env[e]);
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+const requiredDbEnvs = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
+const missingDb = requiredDbEnvs.filter((e) => !process.env[e]);
+
+if (missing.length || (!hasDatabaseUrl && missingDb.length)) {
+  const reasons = [];
+  if (missing.length) reasons.push(...missing.map((e) => `${e} (JWT)`));
+  if (!hasDatabaseUrl && missingDb.length) {
+    reasons.push(`DB config incompleta: ${missingDb.join(', ')}`);
+  }
+  console.error('Faltan variables de entorno obligatorias:', reasons.join(' | '));
   process.exit(1);
 }
 
