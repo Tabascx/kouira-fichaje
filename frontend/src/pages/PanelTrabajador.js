@@ -137,8 +137,25 @@ export default function PanelTrabajador() {
   const [justificarOpen, setJustificarOpen] = useState(false);
   const [justificarTarget, setJustificarTarget] = useState(null);
 
-  const abrirJustificar = (f) => { setJustificarTarget(f); setJustificarOpen(true); };
-  const cerrarJustificar = () => { setJustificarTarget(null); setJustificarOpen(false); };
+  const [justificarExisting, setJustificarExisting] = useState([]);
+  const [justificarLoading, setJustificarLoading] = useState(false);
+
+  const abrirJustificar = async (f) => {
+    setJustificarTarget(f);
+    setJustificarOpen(true);
+    setJustificarExisting([]);
+    setJustificarLoading(true);
+    try {
+      const { data } = await api.get(`/fichajes/${f.id}/justificaciones`);
+      setJustificarExisting(data);
+    } catch (err) {
+      // ignore silently; user can still post
+    } finally {
+      setJustificarLoading(false);
+    }
+  };
+
+  const cerrarJustificar = () => { setJustificarTarget(null); setJustificarOpen(false); setJustificarExisting([]); };
   const enviarJustificacion = async ({ reasonType, reasonText }) => {
     if (!justificarTarget) return;
     try {
@@ -318,7 +335,7 @@ export default function PanelTrabajador() {
           )}
 
           {/* Justify modal */}
-          <JustifyModal open={justificarOpen} onClose={cerrarJustificar} onSubmit={enviarJustificacion} defaultReason={''} />
+          <JustifyModal open={justificarOpen} onClose={cerrarJustificar} onSubmit={enviarJustificacion} defaultReason={''} existing={justificarExisting} />
 
         </div>
       </div>

@@ -201,4 +201,21 @@ router.post('/:id/justify',
   }
 );
 
+// Obtener justificaciones de un fichaje (propietario o admin)
+router.get('/:id/justificaciones', verificarToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const fichajeRes = await pool.query('SELECT usuario_id FROM fichajes WHERE id = $1', [id]);
+    if (fichajeRes.rowCount === 0) return res.status(404).json({ error: 'Fichaje no encontrado' });
+    const ownerId = fichajeRes.rows[0].usuario_id;
+    if (req.usuario.id !== ownerId && req.usuario.rol !== 'admin') return res.status(403).json({ error: 'No autorizado' });
+
+    const resJ = await pool.query('SELECT id, fichaje_id, usuario_id, motivo_tipo, motivo_text, creado_en, ip, user_agent FROM justificaciones WHERE fichaje_id = $1 ORDER BY creado_en DESC', [id]);
+    res.json(resJ.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener justificaciones' });
+  }
+});
+
 module.exports = router;
