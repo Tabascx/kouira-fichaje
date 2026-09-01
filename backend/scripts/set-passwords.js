@@ -4,7 +4,7 @@
 
 console.error('Este script está deshabilitado por seguridad. Usa backend/scripts/set-passwords.safe.js en su lugar.');
 process.exit(1);
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 
 const pool = new Pool({
