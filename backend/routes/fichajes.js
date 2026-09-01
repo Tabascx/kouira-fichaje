@@ -3,29 +3,36 @@ const pool    = require('../db/connection');
 const { verificarToken, soloAdmin } = require('../middleware/auth');
 const { registrarAuditoria } = require('../db/auditoria');
 
+const { body, validationResult } = require('express-validator');
 const router = express.Router();
 
-router.post('/', verificarToken, async (req, res) => {
-  const { tipo } = req.body;
-  const usuario_id = req.usuario.id;
-  if (!['entrada', 'salida'].includes(tipo)) return res.status(400).json({ error: 'tipo debe ser "entrada" o "salida"' });
-  try {
-    const ultimoRes = await pool.query('SELECT tipo FROM fichajes WHERE usuario_id = $1 ORDER BY fecha_hora DESC LIMIT 1', [usuario_id]);
-    const ultimo = ultimoRes.rows[0];
-    if (ultimo && ultimo.tipo === tipo) {
-      return res.status(409).json({ error: `Ya tienes una ${tipo} registrada. Registra la ${tipo === 'entrada' ? 'salida' : 'entrada'} primero.` });
+router.post('/',
+  verificarToken,
+  body('tipo').isIn(['entrada','salida']).withMessage('tipo debe ser "entrada" o "salida"'),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { tipo } = req.body;
+    const usuario_id = req.usuario.id;
+    try {
+      const ultimoRes = await pool.query('SELECT tipo FROM fichajes WHERE usuario_id = $1 ORDER BY fecha_hora DESC LIMIT 1', [usuario_id]);
+      const ultimo = ultimoRes.rows[0];
+      if (ultimo && ultimo.tipo === tipo) {
+        return res.status(409).json({ error: `Ya tienes una ${tipo} registrada. Registra la ${tipo === 'entrada' ? 'salida' : 'entrada'} primero.` });
+      }
+      const resultado = await pool.query(
+          'INSERT INTO fichajes (usuario_id, tipo, ip_origen) VALUES ($1, $2, $3) RETURNING *',
+          [usuario_id, tipo, req.ip]
+      );
+      await registrarAuditoria({ accion: 'crear', tabla: 'fichajes', registro_id: resultado.rows[0].id, usuario_id, datos_anterior: resultado.rows[0], req });
+      res.status(201).json(resultado.rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Error al registrar fichaje' });
     }
-    const resultado = await pool.query(
-        'INSERT INTO fichajes (usuario_id, tipo, ip_origen) VALUES ($1, $2, $3) RETURNING *',
-        [usuario_id, tipo, req.ip]
-    );
-    await registrarAuditoria({ accion: 'crear', tabla: 'fichajes', registro_id: resultado.rows[0].id, usuario_id, datos_anterior: resultado.rows[0], req });
-    res.status(201).json(resultado.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al registrar fichaje' });
   }
-});
+);
 
 router.get('/mios', verificarToken, async (req, res) => {
   try {
@@ -117,9 +124,11 @@ router.delete('/mio/:id', verificarToken, async (req, res) => {
     if (fichajeRes.rowCount === 0) return res.status(404).json({ error: 'Fichaje no encontrado' });
     const fichaje = fichajeRes.rows[0];
     if (fichaje.usuario_id !== usuario_id) return res.status(403).json({ error: 'No autorizado' });
-    const hoy = new Date().toISOString().slice(0, 10);
-    const diaFichaje = new Date(fichaje.fecha_hora).toISOString().slice(0, 10);
-    if (diaFichaje !== hoy) return res.status(403).json({ error: 'Solo puedes eliminar fichajes del día de hoy' });
+
+    // Comprobar en la base de datos si la fecha coincide con CURRENT_DATE (evita problemas de zonas horarias)
+    const hoyRes = await pool.query('SELECT (DATE(fecha_hora) = CURRENT_DATE) AS es_hoy FROM fichajes WHERE id = $1', [id]);
+    if (!hoyRes.rows[0].es_hoy) return res.status(403).json({ error: 'Solo puedes eliminar fichajes del día de hoy' });
+
     await pool.query('DELETE FROM fichajes WHERE id = $1', [id]);
     await registrarAuditoria({ accion: 'eliminar', tabla: 'fichajes', registro_id: Number(id), usuario_id, datos_anterior: fichaje, razon: 'Eliminado por el propio trabajador', req });
     res.json({ ok: true });

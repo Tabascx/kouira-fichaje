@@ -1,4 +1,9 @@
-require('dotenv').config();
+// Deprecated: this script previously contained hardcoded credentials.
+// Use set-passwords.safe.js instead which reads USERS_JSON and DATABASE_URL from the environment.
+// Keeping this file as a safe stub to avoid accidental execution.
+
+console.error('Este script está deshabilitado por seguridad. Usa backend/scripts/set-passwords.safe.js en su lugar.');
+process.exit(1);
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
 
@@ -8,9 +13,9 @@ const pool = new Pool({
 });
 
 const usuarios = [
-    { username: 'mahjoub.kouira',  password: 'M1979ce_' },
-    { username: 'haytham.samouni', password: 'haytham2024' },
-    { username: 'mouhsin.kouira',  password: '567890ce_' },
+    // REMOVED: user entry removed for security,
+    // REMOVED: user entry removed for security,
+    // REMOVED: user entry removed for security,
 ];
 
 (async () => {
