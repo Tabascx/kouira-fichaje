@@ -172,7 +172,7 @@ router.get('/auditoria/historial', verificarToken, soloAdmin, async (req, res) =
 // Justificar un fichaje (motivo + tipo)
 router.post('/:id/justify',
   verificarToken,
-  body('motivo_tipo').optional().isIn(['pausa', 'descanso', 'otro']).withMessage('motivo_tipo debe ser pausa, descanso u otro'),
+  body('motivo_tipo').optional().isIn(['pausa', 'descanso']).withMessage('motivo_tipo debe ser pausa o descanso'),
   body('motivo_text').optional({ nullable: true, checkFalsy: true }).isString().withMessage('motivo_text debe ser texto si se envía').isLength({ min: 1 }).withMessage('motivo_text no puede estar vacío'),
   async (req, res) => {
     const errors = validationResult(req);
@@ -186,7 +186,7 @@ router.post('/:id/justify',
       if (fichajeRes.rowCount === 0) return res.status(404).json({ error: 'Fichaje no encontrado' });
 
       const tipoValido = motivo_tipo || 'pausa';
-      const motivoFinal = typeof motivo_text === 'string' && motivo_text.trim() ? motivo_text.trim() : (tipoValido === 'descanso' ? 'Descanso registrado' : 'Pausa registrada');
+      const motivoFinal = typeof motivo_text === 'string' && motivo_text.trim() ? motivo_text.trim() : (tipoValido === 'descanso' ? 'Descanso del trabajador' : 'Pausa del trabajador');
 
       const insertRes = await pool.query(
         'INSERT INTO justificaciones (fichaje_id, usuario_id, motivo_tipo, motivo_text, ip, user_agent) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
