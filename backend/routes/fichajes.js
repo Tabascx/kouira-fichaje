@@ -172,8 +172,8 @@ router.get('/auditoria/historial', verificarToken, soloAdmin, async (req, res) =
 // Justificar un fichaje (motivo + tipo)
 router.post('/:id/justify',
   verificarToken,
-  body('motivo_tipo').optional().isString(),
-  body('motivo_text').isString().withMessage('motivo_text es obligatorio').isLength({ min: 1 }).withMessage('motivo_text no puede estar vacío'),
+  body('motivo_tipo').optional().isIn(['pausa', 'descanso', 'otro']).withMessage('motivo_tipo debe ser pausa, descanso u otro'),
+  body('motivo_text').optional({ nullable: true, checkFalsy: true }).isString().withMessage('motivo_text debe ser texto si se envía').isLength({ min: 1 }).withMessage('motivo_text no puede estar vacío'),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -182,16 +182,18 @@ router.post('/:id/justify',
     const { motivo_tipo, motivo_text } = req.body;
     const usuario_id = req.usuario.id;
     try {
-      // verificar que el fichaje existe
       const fichajeRes = await pool.query('SELECT * FROM fichajes WHERE id = $1', [id]);
       if (fichajeRes.rowCount === 0) return res.status(404).json({ error: 'Fichaje no encontrado' });
 
+      const tipoValido = motivo_tipo || 'pausa';
+      const motivoFinal = typeof motivo_text === 'string' && motivo_text.trim() ? motivo_text.trim() : (tipoValido === 'descanso' ? 'Descanso registrado' : 'Pausa registrada');
+
       const insertRes = await pool.query(
         'INSERT INTO justificaciones (fichaje_id, usuario_id, motivo_tipo, motivo_text, ip, user_agent) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [id, usuario_id, motivo_tipo || null, motivo_text, req.ip, req.headers['user-agent'] || null]
+        [id, usuario_id, tipoValido, motivoFinal, req.ip, req.headers['user-agent'] || null]
       );
 
-      await registrarAuditoria({ accion: 'justificar', tabla: 'fichajes', registro_id: Number(id), usuario_id, datos_anterior: null, razon: motivo_text, req });
+      await registrarAuditoria({ accion: 'justificar', tabla: 'fichajes', registro_id: Number(id), usuario_id, datos_anterior: null, razon: motivoFinal, req });
 
       res.status(201).json(insertRes.rows[0]);
     } catch (err) {

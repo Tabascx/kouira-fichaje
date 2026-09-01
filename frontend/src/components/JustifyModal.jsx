@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // JustifyModal: uses shared modal styles from Panel.css and specific classes for content
-export default function JustifyModal({ open, onClose, onSubmit, defaultReason = '', reasonTypes = ['permiso', 'vacaciones', 'baja', 'otro'], existing = [] }) {
-  const [reasonType, setReasonType] = useState(reasonTypes[0] || 'otro');
+export default function JustifyModal({ open, onClose, onSubmit, defaultReason = '', reasonTypes = ['pausa', 'descanso', 'otro'], existing = [] }) {
+  const [reasonType, setReasonType] = useState(reasonTypes[0] || 'pausa');
   const [reasonText, setReasonText] = useState(defaultReason);
   const cardRef = useRef(null);
 
   useEffect(() => {
-    setReasonType(reasonTypes[0] || 'otro');
+    setReasonType(reasonTypes[0] || 'pausa');
     setReasonText(defaultReason || '');
   }, [reasonTypes, defaultReason]);
 
@@ -35,7 +35,8 @@ export default function JustifyModal({ open, onClose, onSubmit, defaultReason = 
     <div className="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="justify-title" onClick={onBackdropClick}>
       <div className="modal-card" ref={cardRef} role="document">
         <button aria-label="Cerrar" className="modal-close" onClick={onClose}>✕</button>
-        <div className="modal-titulo" id="justify-title">Justificar fichaje</div>
+        <div className="modal-titulo" id="justify-title">Pausa / descanso del fichaje</div>
+        <p className="modal-desc">Se usa para dejar constancia de una pausa o descanso dentro de la jornada. No es una baja ni una ausencia.</p>
 
         {existing && existing.length > 0 && (
           <div className="justificaciones-list">
@@ -54,14 +55,14 @@ export default function JustifyModal({ open, onClose, onSubmit, defaultReason = 
 
         <form onSubmit={submit}>
           <div className="form-field">
-            <label className="form-label">Tipo</label>
+            <label className="form-label">Tipo de pausa</label>
             <select className="form-select" value={reasonType} onChange={(e) => setReasonType(e.target.value)} autoFocus>
-              {reasonTypes.map((r) => <option key={r} value={r}>{r}</option>)}
+              {reasonTypes.map((r) => <option key={r} value={r}>{r === 'pausa' ? 'Pausa' : r === 'descanso' ? 'Descanso' : 'Otro'}</option>)}
             </select>
           </div>
           <div className="form-field">
-            <label className="form-label">Motivo (detallado)</label>
-            <textarea className="form-input" value={reasonText} onChange={(e) => setReasonText(e.target.value)} rows={4} />
+            <label className="form-label">Detalle opcional</label>
+            <textarea className="form-input" value={reasonText} onChange={(e) => setReasonText(e.target.value)} rows={4} placeholder="Ej.: Pausa de 15 minutos para descanso del trabajador." />
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button type="button" className="btn-mini" onClick={onClose}>Cancelar</button>
